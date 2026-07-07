@@ -1,0 +1,79 @@
+import {
+  HeadContent,
+  Outlet,
+  Scripts,
+  createRootRoute,
+} from "@tanstack/react-router";
+import type { ReactNode } from "react";
+
+import appCss from "~/styles/app.css?url";
+import { ThemeProvider } from "~/components/ThemeProvider";
+import { Header } from "~/components/Header";
+import { Footer } from "~/components/Footer";
+
+export const Route = createRootRoute({
+  head: () => ({
+    meta: [
+      { charSet: "utf-8" },
+      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { title: "ROKI Construction Rwanda — Building Rwanda's Future" },
+      { name: "description", content: "ROKI Construction Rwanda delivers high-quality architectural design, geotechnical engineering, sustainability consulting, and project management services across Rwanda." },
+    ],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      { href: "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@400;500;600;700;800&display=swap", rel: "stylesheet" },
+    ],
+  }),
+  notFoundComponent: () => (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center bg-white dark:bg-dark-bg">
+      <span className="text-6xl font-bold text-primary">404</span>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Page Not Found</h1>
+      <p className="text-gray-500 dark:text-gray-400">The page you're looking for doesn't exist.</p>
+      <a href="/" className="mt-4 px-6 py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg transition-colors">Go Home</a>
+    </div>
+  ),
+  component: RootComponent,
+});
+
+function RootComponent() {
+  return (
+    <RootDocument>
+      <Outlet />
+    </RootDocument>
+  );
+}
+
+function RootDocument({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en" className="dark">
+      <head>
+        <HeadContent />
+      </head>
+      <body className="min-h-dvh">
+        <ThemeProvider>
+          <div className="flex min-h-dvh flex-col">
+            <Header />
+            <main className="flex-1">{children}</main>
+            <Footer />
+          </div>
+          {/* Scroll reveal observer script */}
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function() {
+                  // Restore theme on load (blocking to prevent flash)
+                  const t = localStorage.getItem('roki-theme');
+                  if (t === 'light') document.documentElement.classList.remove('dark');
+                  else document.documentElement.classList.add('dark');
+                })();
+              `,
+            }}
+          />
+        </ThemeProvider>
+        <Scripts />
+      </body>
+    </html>
+  );
+}
