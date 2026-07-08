@@ -64,14 +64,22 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   usePageTracking();
+  const pathname = useLocation({ select: (l) => l.pathname });
   return (
-    <RootDocument>
+    <RootDocument siteChrome={!pathname.startsWith("/admin")}>
       <Outlet />
     </RootDocument>
   );
 }
 
-function RootDocument({ children }: { children: ReactNode }) {
+function RootDocument({
+  children,
+  siteChrome,
+}: {
+  children: ReactNode;
+  /** False for self-contained layouts like /admin that bring their own chrome. */
+  siteChrome: boolean;
+}) {
   return (
     <html lang="en" className="dark">
       <head>
@@ -79,11 +87,15 @@ function RootDocument({ children }: { children: ReactNode }) {
       </head>
       <body className="min-h-dvh">
         <ThemeProvider>
-          <div className="flex min-h-dvh flex-col">
-            <Header />
-            <main className="flex-1">{children}</main>
-            <Footer />
-          </div>
+          {siteChrome ? (
+            <div className="flex min-h-dvh flex-col">
+              <Header />
+              <main className="flex-1">{children}</main>
+              <Footer />
+            </div>
+          ) : (
+            <main className="min-h-dvh">{children}</main>
+          )}
           {/* Scroll reveal observer script */}
           <script
             dangerouslySetInnerHTML={{
