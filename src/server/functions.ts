@@ -111,7 +111,7 @@ export const getSiteContent = createServerFn({ method: "GET" }).handler(
 );
 
 export const saveSiteContent = createServerFn({ method: "POST" })
-  .inputValidator((data: { password: string; key: string; value: unknown }) => {
+  .validator((data: { password: string; key: string; value: unknown }) => {
     const key = String(data.key ?? "");
     if (!contentKeys.includes(key as keyof SiteContent)) {
       throw new Error(`Unknown content key: ${key}`);
@@ -140,7 +140,7 @@ export const saveSiteContent = createServerFn({ method: "POST" })
 
 /** Reset one content key back to the built-in default. */
 export const resetSiteContent = createServerFn({ method: "POST" })
-  .inputValidator((data: { password: string; key: string }) => ({
+  .validator((data: { password: string; key: string }) => ({
     password: String(data.password ?? ""),
     key: String(data.key ?? ""),
   }))
@@ -170,7 +170,7 @@ export type ContactInput = {
 };
 
 export const submitContact = createServerFn({ method: "POST" })
-  .inputValidator((data: ContactInput) => {
+  .validator((data: ContactInput) => {
     const name = String(data.name ?? "").trim().slice(0, 200);
     const email = String(data.email ?? "").trim().slice(0, 200);
     const phone = String(data.phone ?? "").trim().slice(0, 50);
@@ -201,7 +201,7 @@ export const submitContact = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------------------
 
 export const trackPageView = createServerFn({ method: "POST" })
-  .inputValidator((data: { path: string; referrer: string; userAgent: string }) => ({
+  .validator((data: { path: string; referrer: string; userAgent: string }) => ({
     path: String(data.path ?? "/").slice(0, 500),
     referrer: String(data.referrer ?? "").slice(0, 500),
     userAgent: String(data.userAgent ?? "").slice(0, 500),
@@ -253,7 +253,7 @@ const unauthorized: AdminStats = {
 };
 
 export const getAdminStats = createServerFn({ method: "POST" })
-  .inputValidator((data: { password: string }) => ({
+  .validator((data: { password: string }) => ({
     password: String(data.password ?? ""),
   }))
   .handler(async ({ data }): Promise<AdminStats> => {

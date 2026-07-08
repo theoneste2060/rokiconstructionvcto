@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { defaultContent, type SiteContent } from "../src/data/content";
 
-const root = path.join(import.meta.dir, "..");
+const root = path.join(path.dirname(new URL(import.meta.url).pathname), "..");
 
 function loadContent(): SiteContent {
   const merged: SiteContent = { ...defaultContent };
@@ -18,6 +18,11 @@ function loadContent(): SiteContent {
   try {
     const { Database } = require("bun:sqlite");
     const db = new Database(dbFile, { readonly: true });
+    // The table only exists once something has been saved from /admin.
+    const hasTable = db
+      .prepare("select name from sqlite_master where type = 'table' and name = 'site_content'")
+      .get();
+    if (!hasTable) return merged;
     const rows = db.prepare("select key, value from site_content").all() as { key: string; value: string }[];
     for (const row of rows) {
       if (row.key in merged) {
