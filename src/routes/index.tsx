@@ -54,12 +54,12 @@ const services = [
 ];
 
 const projects = [
-  { title: "Kigali Heights Tower", category: "Commercial", gradient: "from-emerald-800/40 to-teal-600/20" },
-  { title: "Green Hills Estate", category: "Residential", gradient: "from-green-800/40 to-emerald-600/20" },
-  { title: "Rwanda Innovation Hub", category: "Institutional", gradient: "from-teal-800/40 to-cyan-600/20" },
-  { title: "Lake View Resort", category: "Hospitality", gradient: "from-amber-800/40 to-yellow-600/20" },
-  { title: "Kacyiru Business Center", category: "Commercial", gradient: "from-stone-800/40 to-amber-600/20" },
-  { title: "Mountainside Villas", category: "Residential", gradient: "from-emerald-900/40 to-green-600/20" },
+  { title: "Kigali Heights Tower", category: "Commercial", image: "/images/kigali_commercial_office.webp" },
+  { title: "Green Hills Estate", category: "Residential", image: "/images/kigali_residential_complex.webp" },
+  { title: "Rwanda Innovation Hub", category: "Institutional", image: "/images/rwandan_rural_school.webp" },
+  { title: "Lake View Resort", category: "Hospitality", image: "/images/kigali_luxury_villa.webp" },
+  { title: "Kacyiru Business Center", category: "Commercial", image: "/images/kigali_construction_site.webp" },
+  { title: "Mountainside Villas", category: "Residential", image: "/images/sustainable_rooftop_kigali.webp" },
 ];
 
 const testimonials = [
@@ -85,6 +85,18 @@ function Home() {
     <>
       {/* ===== HERO SECTION ===== */}
       <section className="relative min-h-dvh flex items-center overflow-hidden bg-hero-pattern-light dark:bg-hero-pattern">
+        {/* Hero background photo */}
+        <div className="absolute inset-0">
+          <img
+            src="/images/hero-bg.jpg"
+            alt="ROKI Construction site in Rwanda at sunrise, with a crane over a building under construction"
+            className="w-full h-full object-cover"
+          />
+          {/* Readability overlay — strong on the left where the copy sits */}
+          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/85 to-white/30 dark:from-dark-bg dark:via-dark-bg/85 dark:to-dark-bg/40" />
+          <div className="absolute inset-0 bg-gradient-to-t from-white/60 via-transparent to-transparent dark:from-dark-bg/70" />
+        </div>
+
         {/* Decorative elements */}
         <div className="absolute inset-0 bg-grid-pattern opacity-30 dark:opacity-20" />
         <div className="absolute top-20 right-20 w-72 h-72 border border-primary/10 rounded-full animate-float" />
@@ -240,17 +252,14 @@ function Home() {
             {projects.map((project, i) => (
               <ScrollReveal key={project.title} delay={i * 100}>
                 <div className="group cursor-pointer">
-                  <div className={`relative h-64 sm:h-72 rounded-2xl overflow-hidden bg-gradient-to-br ${project.gradient} border border-gray-200 dark:border-gray-800`}>
-                    {/* Abstract building pattern */}
-                    <div className="absolute inset-0 opacity-30">
-                      <svg className="w-full h-full" viewBox="0 0 400 400">
-                        <rect x="80" y="120" width="40" height="80" fill="white" opacity="0.3" />
-                        <rect x="140" y="80" width="40" height="120" fill="white" opacity="0.2" />
-                        <rect x="200" y="140" width="40" height="60" fill="white" opacity="0.3" />
-                        <rect x="260" y="100" width="40" height="100" fill="white" opacity="0.2" />
-                        <line x1="40" y1="280" x2="360" y2="280" stroke="white" strokeWidth="2" opacity="0.3" />
-                      </svg>
-                    </div>
+                  <div className="relative h-64 sm:h-72 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800">
+                    {/* Project photo */}
+                    <img
+                      src={project.image}
+                      alt={`${project.title} — ${project.category} project by ROKI Construction`}
+                      loading="lazy"
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
                     {/* Hover overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-6">
                       <div>

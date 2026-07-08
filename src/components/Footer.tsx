@@ -23,7 +23,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
           {/* Company info */}
           <div className="lg:col-span-1">
-            <Logo className="h-10 w-auto mb-4" />
+            <Logo className="h-10 w-auto mb-4" onDark />
             <p className="mt-3 text-sm text-gray-400 leading-relaxed">
               Building Rwanda's future with excellence, integrity, and innovation. 
               Your trusted partner in construction and development since 2021.

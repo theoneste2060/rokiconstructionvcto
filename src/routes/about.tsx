@@ -45,10 +45,10 @@ const values = [
 ];
 
 const team = [
-  { name: "Patrick Rukundo", role: "CEO & Founder", bio: "15+ years in construction and development across East Africa." },
-  { name: "Grace Mukamana", role: "Chief Architect", bio: "Award-winning architect specializing in sustainable design." },
-  { name: "Emmanuel Habimana", role: "Head of Engineering", bio: "Expert geotechnical engineer with a passion for innovation." },
-  { name: "Diane Uwimana", role: "Project Director", bio: "Certified PMP with a track record of on-time delivery." },
+  { name: "Patrick Rukundo", role: "CEO & Founder", bio: "15+ years in construction and development across East Africa.", photo: "/images/headshot_managing_director.webp" },
+  { name: "Grace Mukamana", role: "Chief Architect", bio: "Award-winning architect specializing in sustainable design.", photo: "/images/headshot_lead_architect.webp" },
+  { name: "Emmanuel Habimana", role: "Head of Engineering", bio: "Expert geotechnical engineer with a passion for innovation.", photo: "/images/headshot_site_engineer.webp" },
+  { name: "Diane Uwimana", role: "Project Director", bio: "Certified PMP with a track record of on-time delivery.", photo: "/images/headshot_finance_lead.webp" },
 ];
 
 function About() {
@@ -84,12 +84,15 @@ function About() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <ScrollReveal>
               <div className="relative">
-                <div className="aspect-square rounded-2xl bg-gradient-to-br from-primary/20 via-accent/10 to-secondary/20 dark:from-primary/10 dark:via-accent/5 dark:to-secondary/30 border border-gray-200 dark:border-gray-800 overflow-hidden">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <svg className="w-40 h-40 text-primary/20 dark:text-primary/10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={0.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                    </svg>
-                  </div>
+                <div className="aspect-square rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+                  {/* Site photo */}
+                  <img
+                    src="/images/kigali_construction_site.webp"
+                    alt="ROKI Construction team at work on a construction site in Kigali"
+                    loading="lazy"
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
                   <div className="absolute bottom-6 left-6 right-6 p-4 bg-white/90 dark:bg-dark-card/90 backdrop-blur-sm rounded-xl border border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-4">
                       <div className="text-3xl font-bold text-primary">50+</div>
@@ -182,10 +185,13 @@ function About() {
             {team.map((member, i) => (
               <ScrollReveal key={member.name} delay={i * 100}>
                 <div className="group text-center">
-                  <div className="w-40 h-40 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 via-accent/10 to-secondary/30 dark:from-primary/10 dark:via-accent/5 dark:to-secondary/20 border border-gray-200 dark:border-gray-800 flex items-center justify-center overflow-hidden">
-                    <div className="text-5xl font-bold text-primary/30 dark:text-primary/20 font-display">
-                      {member.name.split(" ").map(n => n[0]).join("")}
-                    </div>
+                  <div className="w-40 h-40 mx-auto rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+                    <img
+                      src={member.photo}
+                      alt={`${member.name}, ${member.role} at ROKI Construction`}
+                      loading="lazy"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
                   </div>
                   <h3 className="mt-5 text-lg font-semibold text-gray-900 dark:text-white">{member.name}</h3>
                   <p className="text-sm text-primary font-medium">{member.role}</p>
