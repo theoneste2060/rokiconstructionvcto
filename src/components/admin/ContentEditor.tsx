@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { SiteContent } from "~/data/content";
-import { getSiteContent, resetSiteContent, saveSiteContent } from "~/server/functions";
+import { getSiteContent, resetSiteContent, saveSiteContent, type AdminAuth } from "~/server/functions";
 
 /**
  * Schema-driven editor for every editable collection on the site. Values are
@@ -353,7 +353,7 @@ function FieldInput({
   );
 }
 
-export function ContentEditor({ password }: { password: string }) {
+export function ContentEditor({ auth }: { auth: AdminAuth }) {
   const [content, setContent] = useState<SiteContent | null>(null);
   const [active, setActive] = useState(collections[0].label);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -381,14 +381,14 @@ export function ContentEditor({ password }: { password: string }) {
   const save = async () => {
     setStatus("saving");
     const nextDoc = content[col.key];
-    const result = await saveSiteContent({ data: { password, key: col.key, value: nextDoc } }).catch(() => ({ ok: false }));
+    const result = await saveSiteContent({ data: { auth, key: col.key, value: nextDoc } }).catch(() => ({ ok: false }));
     setStatus(result.ok ? "saved" : "error");
   };
 
   const reset = async () => {
     if (!confirm(`Reset "${col.label}" (and everything else stored under "${col.key}") to the built-in defaults?`)) return;
     setStatus("saving");
-    const result = await resetSiteContent({ data: { password, key: col.key } }).catch(() => ({ ok: false }));
+    const result = await resetSiteContent({ data: { auth, key: col.key } }).catch(() => ({ ok: false }));
     await load();
     setStatus(result.ok ? "saved" : "error");
   };

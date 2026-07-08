@@ -41,7 +41,7 @@ export const Route = createRootRoute({
         { name: "viewport", content: "width=device-width, initial-scale=1" },
         { title: s.seoTitle },
         { name: "description", content: s.seoDescription },
-        { name: "theme-color", content: "#284932" },
+        { name: "theme-color", content: "#204830" },
         { property: "og:site_name", content: s.businessName },
         { property: "og:title", content: s.seoTitle },
         { property: "og:description", content: s.seoDescription },
@@ -125,6 +125,20 @@ function RootDocument({
         <HeadContent />
       </head>
       <body className="min-h-dvh">
+        {/* Theme restore runs before content is parsed so there is no flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                const t = localStorage.getItem('roki-theme');
+                const dark = (t === 'dark' || t === 'light')
+                  ? t === 'dark'
+                  : window.matchMedia('(prefers-color-scheme: dark)').matches;
+                document.documentElement.classList.toggle('dark', dark);
+              })();
+            `,
+          }}
+        />
         <ThemeProvider>
           {siteChrome ? (
             <div className="flex min-h-dvh flex-col">
@@ -135,19 +149,6 @@ function RootDocument({
           ) : (
             <main className="min-h-dvh">{children}</main>
           )}
-          {/* Scroll reveal observer script */}
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                (function() {
-                  // Restore theme on load (blocking to prevent flash)
-                  const t = localStorage.getItem('roki-theme');
-                  if (t === 'light') document.documentElement.classList.remove('dark');
-                  else document.documentElement.classList.add('dark');
-                })();
-              `,
-            }}
-          />
         </ThemeProvider>
         <Scripts />
       </body>

@@ -1,17 +1,17 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #284932;
-  --color-primary-light: #3a6b47;
-  --color-primary-dark: #1a3020;
+  --color-primary: #204830;
+  --color-primary-light: #3e7357;
+  --color-primary-dark: #142f20;
   --color-secondary: #1a1a2e;
   --color-secondary-light: #2d2d4a;
-  --color-accent: #a35905;
-  --color-accent-light: #c4701a;
+  --color-accent: #a85000;
+  --color-accent-light: #c9781f;
   --color-dark-card: #16213e;
   --color-dark-bg: #0f0f1a;
-  --color-green-glow: rgba(40, 73, 50, 0.3);
-  --color-green-mist: rgba(40, 73, 50, 0.08);
+  --color-green-glow: rgba(32, 72, 48, 0.3);
+  --color-green-mist: rgba(32, 72, 48, 0.08);
 
   --font-display: "Playfair Display", Georgia, serif;
   --font-body: "Inter", system-ui, sans-serif;
@@ -56,23 +56,23 @@
 @layer utilities {
   .bg-grid-pattern {
     background-image:
-      linear-gradient(rgba(40, 73, 50, 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(40, 73, 50, 0.05) 1px, transparent 1px);
+      linear-gradient(rgba(32, 72, 48, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(32, 72, 48, 0.05) 1px, transparent 1px);
     background-size: 60px 60px;
   }
 
   .bg-hero-pattern {
     background:
-      radial-gradient(ellipse at 20% 50%, rgba(40, 73, 50, 0.15) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 20%, rgba(163, 89, 5, 0.1) 0%, transparent 50%),
+      radial-gradient(ellipse at 20% 50%, rgba(32, 72, 48, 0.15) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(168, 80, 0, 0.1) 0%, transparent 50%),
       radial-gradient(ellipse at 50% 80%, rgba(26, 26, 46, 0.3) 0%, transparent 50%),
       linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
   }
 
   .bg-hero-pattern-light {
     background:
-      radial-gradient(ellipse at 20% 50%, rgba(40, 73, 50, 0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 20%, rgba(163, 89, 5, 0.05) 0%, transparent 50%),
+      radial-gradient(ellipse at 20% 50%, rgba(32, 72, 48, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(168, 80, 0, 0.05) 0%, transparent 50%),
       linear-gradient(135deg, #faf8f5 0%, #f5f0e8 50%, #faf5ee 100%);
   }
 
@@ -93,7 +93,7 @@
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(40, 73, 50, 0.1) 50%,
+      rgba(32, 72, 48, 0.1) 50%,
       transparent 100%
     );
     background-size: 200% 100%;
@@ -117,8 +117,8 @@
 }
 
 @keyframes glow {
-  from { box-shadow: 0 0 5px rgba(40, 73, 50, 0.2); }
-  to { box-shadow: 0 0 20px rgba(40, 73, 50, 0.4), 0 0 40px rgba(40, 73, 50, 0.1); }
+  from { box-shadow: 0 0 5px rgba(32, 72, 48, 0.2); }
+  to { box-shadow: 0 0 20px rgba(32, 72, 48, 0.4), 0 0 40px rgba(32, 72, 48, 0.1); }
 }
 
 @keyframes slideUp {
@@ -142,8 +142,8 @@
 }
 
 @keyframes borderGlow {
-  0%, 100% { border-color: rgba(40, 73, 50, 0.3); }
-  50% { border-color: rgba(40, 73, 50, 0.7); }
+  0%, 100% { border-color: rgba(32, 72, 48, 0.3); }
+  50% { border-color: rgba(32, 72, 48, 0.7); }
 }
 
 @keyframes drawLine {
@@ -178,7 +178,7 @@
   position: absolute;
   width: 24px;
   height: 24px;
-  border-color: #284932;
+  border-color: #204830;
   opacity: 0.4;
 }
 .geo-corner::before {
@@ -197,6 +197,6 @@
 /* Dark mode overrides */
 .dark .geo-corner::before,
 .dark .geo-corner::after {
-  border-color: #3a6b47;
+  border-color: #3e7357;
   opacity: 0.5;
 }

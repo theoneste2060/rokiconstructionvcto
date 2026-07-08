@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { contentKeys, defaultContent, type SiteContent } from "~/data/content";
@@ -73,10 +74,183 @@ async function openDb(): Promise<Db> {
       value text not null,
       updated_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     )`);
+  db.run(`
+    create table if not exists admin_users (
+      id integer primary key autoincrement,
+      username text not null unique,
+      password_hash text not null,
+      salt text not null,
+      role text not null default 'admin',
+      created_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    )`);
+
+  // Bootstrap: the ADMIN_PASSWORD env var seeds the first super admin
+  // (username "admin"). After that, accounts live in the database and are
+  // managed from the Users section; the env var is only a first-run seed.
+  const userCount = Number(db.all(`select count(*) as c from admin_users`)[0]?.c ?? 0);
+  if (userCount === 0 && process.env.ADMIN_PASSWORD) {
+    const salt = randomBytes(16).toString("hex");
+    db.run(
+      `insert into admin_users (username, password_hash, salt, role) values (?, ?, ?, 'super')`,
+      ["admin", hashPassword(process.env.ADMIN_PASSWORD, salt), salt],
+    );
+  }
 
   dbInstance = db;
   return db;
 }
+
+// ---------------------------------------------------------------------------
+// Admin accounts & authentication
+// ---------------------------------------------------------------------------
+
+export type AdminRole = "super" | "admin";
+export type AdminAuth = { username: string; password: string };
+export type AdminUser = { id: number; username: string; role: AdminRole; created_at: string };
+
+const hashPassword = (password: string, salt: string) =>
+  createHash("sha256").update(`${salt}:${password}`).digest("hex");
+
+const cleanAuth = (data: { username?: unknown; password?: unknown }): AdminAuth => ({
+  username: String(data.username ?? "").trim().toLowerCase().slice(0, 40),
+  password: String(data.password ?? ""),
+});
+
+/** Verify credentials against admin_users; returns the account or null. */
+function verifyUser(db: Db, auth: AdminAuth): { id: number; username: string; role: AdminRole } | null {
+  if (!auth.username || !auth.password) return null;
+  const row = db.all(`select id, username, password_hash, salt, role from admin_users where username = ?`, [auth.username])[0];
+  if (!row) return null;
+  if (hashPassword(auth.password, String(row.salt)) !== String(row.password_hash)) return null;
+  return { id: Number(row.id), username: String(row.username), role: row.role === "super" ? "super" : "admin" };
+}
+
+async function requireSuper(auth: AdminAuth) {
+  const db = await openDb();
+  const user = verifyUser(db, auth);
+  if (!user || user.role !== "super") return null;
+  return { db, user };
+}
+
+const validUsername = (u: string) => /^[a-z0-9_.-]{3,40}$/.test(u);
+
+export const listAdminUsers = createServerFn({ method: "POST" })
+  .validator((data: { auth: AdminAuth }) => ({ auth: cleanAuth(data.auth ?? {}) }))
+  .handler(async ({ data }): Promise<{ ok: boolean; users: AdminUser[] }> => {
+    try {
+      const ctx = await requireSuper(data.auth);
+      if (!ctx) return { ok: false, users: [] };
+      const users = ctx.db.all(`select id, username, role, created_at from admin_users order by created_at`).map((r) => ({
+        id: Number(r.id),
+        username: String(r.username),
+        role: (r.role === "super" ? "super" : "admin") as AdminRole,
+        created_at: String(r.created_at),
+      }));
+      return { ok: true, users };
+    } catch (err) {
+      console.error("listAdminUsers failed:", err);
+      return { ok: false, users: [] };
+    }
+  });
+
+export const createAdminUser = createServerFn({ method: "POST" })
+  .validator((data: { auth: AdminAuth; username: string; password: string; role: string }) => ({
+    auth: cleanAuth(data.auth ?? {}),
+    username: String(data.username ?? "").trim().toLowerCase().slice(0, 40),
+    password: String(data.password ?? ""),
+    role: data.role === "super" ? "super" : "admin",
+  }))
+  .handler(async ({ data }): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const ctx = await requireSuper(data.auth);
+      if (!ctx) return { ok: false, error: "Only a super admin can manage users." };
+      if (!validUsername(data.username)) return { ok: false, error: "Username must be 3-40 chars: letters, numbers, dots, dashes." };
+      if (data.password.length < 6) return { ok: false, error: "Password must be at least 6 characters." };
+      if (ctx.db.all(`select id from admin_users where username = ?`, [data.username]).length > 0) {
+        return { ok: false, error: "That username already exists." };
+      }
+      const salt = randomBytes(16).toString("hex");
+      ctx.db.run(
+        `insert into admin_users (username, password_hash, salt, role) values (?, ?, ?, ?)`,
+        [data.username, hashPassword(data.password, salt), salt, data.role],
+      );
+      return { ok: true };
+    } catch (err) {
+      console.error("createAdminUser failed:", err);
+      return { ok: false, error: "Server error." };
+    }
+  });
+
+export const setAdminUserRole = createServerFn({ method: "POST" })
+  .validator((data: { auth: AdminAuth; id: number; role: string }) => ({
+    auth: cleanAuth(data.auth ?? {}),
+    id: Number(data.id),
+    role: data.role === "super" ? "super" : "admin",
+  }))
+  .handler(async ({ data }): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const ctx = await requireSuper(data.auth);
+      if (!ctx) return { ok: false, error: "Only a super admin can manage users." };
+      if (data.role !== "super") {
+        const supers = ctx.db.all(`select id from admin_users where role = 'super'`);
+        if (supers.length === 1 && Number(supers[0].id) === data.id) {
+          return { ok: false, error: "Cannot demote the last super admin." };
+        }
+      }
+      ctx.db.run(`update admin_users set role = ? where id = ?`, [data.role, data.id]);
+      return { ok: true };
+    } catch (err) {
+      console.error("setAdminUserRole failed:", err);
+      return { ok: false, error: "Server error." };
+    }
+  });
+
+export const resetAdminUserPassword = createServerFn({ method: "POST" })
+  .validator((data: { auth: AdminAuth; id: number; password: string }) => ({
+    auth: cleanAuth(data.auth ?? {}),
+    id: Number(data.id),
+    password: String(data.password ?? ""),
+  }))
+  .handler(async ({ data }): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const ctx = await requireSuper(data.auth);
+      if (!ctx) return { ok: false, error: "Only a super admin can reset passwords." };
+      if (data.password.length < 6) return { ok: false, error: "Password must be at least 6 characters." };
+      const salt = randomBytes(16).toString("hex");
+      ctx.db.run(`update admin_users set password_hash = ?, salt = ? where id = ?`, [
+        hashPassword(data.password, salt),
+        salt,
+        data.id,
+      ]);
+      return { ok: true };
+    } catch (err) {
+      console.error("resetAdminUserPassword failed:", err);
+      return { ok: false, error: "Server error." };
+    }
+  });
+
+export const deleteAdminUser = createServerFn({ method: "POST" })
+  .validator((data: { auth: AdminAuth; id: number }) => ({
+    auth: cleanAuth(data.auth ?? {}),
+    id: Number(data.id),
+  }))
+  .handler(async ({ data }): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const ctx = await requireSuper(data.auth);
+      if (!ctx) return { ok: false, error: "Only a super admin can manage users." };
+      const target = ctx.db.all(`select role from admin_users where id = ?`, [data.id])[0];
+      if (!target) return { ok: false, error: "User not found." };
+      if (target.role === "super") {
+        const supers = ctx.db.all(`select id from admin_users where role = 'super'`);
+        if (supers.length <= 1) return { ok: false, error: "Cannot delete the last super admin." };
+      }
+      ctx.db.run(`delete from admin_users where id = ?`, [data.id]);
+      return { ok: true };
+    } catch (err) {
+      console.error("deleteAdminUser failed:", err);
+      return { ok: false, error: "Server error." };
+    }
+  });
 
 // ---------------------------------------------------------------------------
 // Site content (editable from /admin)
@@ -111,20 +285,17 @@ export const getSiteContent = createServerFn({ method: "GET" }).handler(
 );
 
 export const saveSiteContent = createServerFn({ method: "POST" })
-  .validator((data: { password: string; key: string; value: unknown }) => {
+  .validator((data: { auth: AdminAuth; key: string; value: unknown }) => {
     const key = String(data.key ?? "");
     if (!contentKeys.includes(key as keyof SiteContent)) {
       throw new Error(`Unknown content key: ${key}`);
     }
-    return { password: String(data.password ?? ""), key, value: data.value };
+    return { auth: cleanAuth(data.auth ?? {}), key, value: data.value };
   })
   .handler(async ({ data }): Promise<{ ok: boolean; error?: string }> => {
-    const adminPassword = process.env.ADMIN_PASSWORD;
-    if (!adminPassword || data.password !== adminPassword) {
-      return { ok: false, error: "unauthorized" };
-    }
     try {
       const db = await openDb();
+      if (!verifyUser(db, data.auth)) return { ok: false, error: "unauthorized" };
       db.run(
         `insert into site_content (key, value, updated_at)
          values (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
@@ -140,15 +311,14 @@ export const saveSiteContent = createServerFn({ method: "POST" })
 
 /** Reset one content key back to the built-in default. */
 export const resetSiteContent = createServerFn({ method: "POST" })
-  .validator((data: { password: string; key: string }) => ({
-    password: String(data.password ?? ""),
+  .validator((data: { auth: AdminAuth; key: string }) => ({
+    auth: cleanAuth(data.auth ?? {}),
     key: String(data.key ?? ""),
   }))
   .handler(async ({ data }): Promise<{ ok: boolean }> => {
-    const adminPassword = process.env.ADMIN_PASSWORD;
-    if (!adminPassword || data.password !== adminPassword) return { ok: false };
     try {
       const db = await openDb();
+      if (!verifyUser(db, data.auth)) return { ok: false };
       db.run(`delete from site_content where key = ?`, [data.key]);
       return { ok: true };
     } catch (err) {
@@ -227,7 +397,11 @@ export const trackPageView = createServerFn({ method: "POST" })
 
 export type AdminStats = {
   authorized: boolean;
-  /** False when the ADMIN_PASSWORD env var isn't set, so the UI can say so. */
+  /** Role of the authenticated account; null when unauthorized. */
+  role: AdminRole | null;
+  /** Signed-in username; empty when unauthorized. */
+  username: string;
+  /** False when no accounts exist AND no ADMIN_PASSWORD env var to seed one. */
   passwordSet: boolean;
   totalViews: number;
   viewsByDay: { day: string; views: number }[];
@@ -245,6 +419,8 @@ export type AdminStats = {
 
 const unauthorized: AdminStats = {
   authorized: false,
+  role: null,
+  username: "",
   passwordSet: true,
   totalViews: 0,
   viewsByDay: [],
@@ -253,20 +429,19 @@ const unauthorized: AdminStats = {
 };
 
 export const getAdminStats = createServerFn({ method: "POST" })
-  .validator((data: { password: string }) => ({
-    password: String(data.password ?? ""),
-  }))
+  .validator((data: { username: string; password: string }) => cleanAuth(data))
   .handler(async ({ data }): Promise<AdminStats> => {
-    // The password check lives server-side so the data itself is protected,
-    // not just the page that renders it. The password comes exclusively from
-    // the ADMIN_PASSWORD environment variable — never hardcode it. Read at
-    // request time (not module load) so serverless runtimes pick it up too.
-    const adminPassword = process.env.ADMIN_PASSWORD;
-    if (!adminPassword) return { ...unauthorized, passwordSet: false };
-    if (data.password !== adminPassword) return unauthorized;
-
+    // Credentials are checked server-side against the admin_users table so the
+    // data itself is protected, not just the page that renders it. The first
+    // account is seeded from ADMIN_PASSWORD (username "admin") in openDb.
     try {
       const db = await openDb();
+      const userCount = Number(db.all(`select count(*) as c from admin_users`)[0]?.c ?? 0);
+      if (userCount === 0 && !process.env.ADMIN_PASSWORD) {
+        return { ...unauthorized, passwordSet: false };
+      }
+      const account = verifyUser(db, data);
+      if (!account) return unauthorized;
       const totals = db.all(`select count(*) as total from page_views`);
       const byDay = db.all(`
         select date(created_at) as day, count(*) as views
@@ -285,6 +460,8 @@ export const getAdminStats = createServerFn({ method: "POST" })
 
       return {
         authorized: true,
+        role: account.role,
+        username: account.username,
         passwordSet: true,
         totalViews: Number(totals[0]?.total ?? 0),
         viewsByDay: byDay.map((r) => ({ day: String(r.day), views: Number(r.views) })),
@@ -301,6 +478,6 @@ export const getAdminStats = createServerFn({ method: "POST" })
       };
     } catch (err) {
       console.error("admin stats failed:", err);
-      return { ...unauthorized, authorized: true };
+      return unauthorized;
     }
   });

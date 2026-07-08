@@ -36,16 +36,19 @@ export function Header() {
               <Link
                 key={link.href}
                 to={link.href}
-                className={`relative px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                className={`group relative px-4 py-2 text-sm font-medium transition-colors duration-200 ${
                   isActive
-                    ? "text-primary dark:text-primary-light bg-primary/10 dark:bg-primary/10"
-                    : "text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light hover:bg-gray-100 dark:hover:bg-gray-800/50"
+                    ? "text-primary dark:text-primary-light"
+                    : "text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light"
                 }`}
               >
                 {link.label}
-                {isActive && (
-                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-primary rounded-full" />
-                )}
+                {/* underline indicator — no boxes on hover/active */}
+                <span
+                  className={`absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 bg-primary dark:bg-primary-light rounded-full transition-all duration-200 ${
+                    isActive ? "w-6" : "w-0 group-hover:w-6"
+                  }`}
+                />
               </Link>
             );
           })}
@@ -111,10 +114,10 @@ export function Header() {
                 key={link.href}
                 to={link.href}
                 onClick={() => setMobileOpen(false)}
-                className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-4 py-3 text-sm font-medium transition-colors ${
                   isActive
-                    ? "text-primary dark:text-primary-light bg-primary/10"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    ? "text-primary dark:text-primary-light font-semibold underline underline-offset-8 decoration-2 decoration-primary"
+                    : "text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light"
                 }`}
               >
                 {link.label}
