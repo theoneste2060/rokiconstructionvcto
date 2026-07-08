@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ScrollReveal } from "~/components/ScrollReveal";
+import { featuredProjects } from "~/data/projects";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -53,14 +54,7 @@ const services = [
   },
 ];
 
-const projects = [
-  { title: "Kigali Heights Tower", category: "Commercial", image: "/images/kigali_commercial_office.webp" },
-  { title: "Green Hills Estate", category: "Residential", image: "/images/kigali_residential_complex.webp" },
-  { title: "Rwanda Innovation Hub", category: "Institutional", image: "/images/rwandan_rural_school.webp" },
-  { title: "Lake View Resort", category: "Hospitality", image: "/images/kigali_luxury_villa.webp" },
-  { title: "Kacyiru Business Center", category: "Commercial", image: "/images/kigali_construction_site.webp" },
-  { title: "Mountainside Villas", category: "Residential", image: "/images/sustainable_rooftop_kigali.webp" },
-];
+const projects = featuredProjects;
 
 const testimonials = [
   {
@@ -251,7 +245,7 @@ function Home() {
           <div className="mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects.map((project, i) => (
               <ScrollReveal key={project.title} delay={i * 100}>
-                <div className="group cursor-pointer">
+                <Link to="/projects/$slug" params={{ slug: project.slug }} className="group block cursor-pointer">
                   <div className="relative h-64 sm:h-72 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800">
                     {/* Project photo */}
                     <img
@@ -272,7 +266,7 @@ function Home() {
                       {project.category}
                     </div>
                   </div>
-                </div>
+                </Link>
               </ScrollReveal>
             ))}
           </div>

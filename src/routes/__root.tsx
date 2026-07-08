@@ -3,13 +3,32 @@ import {
   Outlet,
   Scripts,
   createRootRoute,
+  useLocation,
 } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import appCss from "~/styles/app.css?url";
 import { ThemeProvider } from "~/components/ThemeProvider";
 import { Header } from "~/components/Header";
 import { Footer } from "~/components/Footer";
+import { trackPageView } from "~/server/functions";
+
+/** Record a page view (fire-and-forget) on every client-side navigation. */
+function usePageTracking() {
+  const pathname = useLocation({ select: (l) => l.pathname });
+  useEffect(() => {
+    if (pathname.startsWith("/admin")) return; // don't count our own dashboard
+    trackPageView({
+      data: {
+        path: pathname,
+        referrer: document.referrer,
+        userAgent: navigator.userAgent,
+      },
+    }).catch(() => {
+      // analytics must never disturb the visitor
+    });
+  }, [pathname]);
+}
 
 export const Route = createRootRoute({
   head: () => ({
@@ -44,6 +63,7 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
+  usePageTracking();
   return (
     <RootDocument>
       <Outlet />

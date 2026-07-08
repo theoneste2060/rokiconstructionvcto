@@ -1,25 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ScrollReveal } from "~/components/ScrollReveal";
+import { projects as allProjects, projectCategories } from "~/data/projects";
 
-export const Route = createFileRoute("/projects")({
+export const Route = createFileRoute("/projects/")({
   component: Projects,
 });
 
-const allProjects = [
-  { title: "Kigali Heights Tower", category: "Commercial", size: "large", image: "/images/kigali_commercial_office.webp", year: "2025" },
-  { title: "Green Hills Estate", category: "Residential", size: "large", image: "/images/kigali_residential_complex.webp", year: "2024" },
-  { title: "Rwanda Innovation Hub", category: "Institutional", size: "medium", image: "/images/rwandan_rural_school.webp", year: "2025" },
-  { title: "Lake View Resort", category: "Hospitality", size: "large", image: "/images/kigali_luxury_villa.webp", year: "2024" },
-  { title: "Kacyiru Business Center", category: "Commercial", size: "medium", image: "/images/kigali_construction_site.webp", year: "2023" },
-  { title: "Mountainside Villas", category: "Residential", size: "medium", image: "/images/sustainable_rooftop_kigali.webp", year: "2024" },
-  { title: "Musanze Ridge Bridge", category: "Infrastructure", size: "large", image: "/images/rwandan_road_bridge.webp", year: "2024" },
-  { title: "Nyarutarama Office Park", category: "Commercial", size: "medium", image: "/images/rwandan_warehouse.webp", year: "2023" },
-  { title: "Rwanda Eco-Lodge", category: "Hospitality", size: "large", image: "/images/landscaping_crew_rwanda.webp", year: "2025" },
-  { title: "Gacuriro Housing Development", category: "Residential", size: "small", image: "/images/kigali_luxury_villa.webp", year: "2023" },
-];
-
-const categories = ["All", "Commercial", "Residential", "Hospitality", "Institutional", "Infrastructure"];
+const categories = projectCategories;
 
 function Projects() {
   const [activeFilter, setActiveFilter] = useState("All");
@@ -75,7 +63,11 @@ function Projects() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filtered.map((project, i) => (
               <ScrollReveal key={project.title} delay={i * 80}>
-                <div className={`group cursor-pointer ${project.size === "large" ? "sm:col-span-2 sm:row-span-1" : ""}`}>
+                <Link
+                  to="/projects/$slug"
+                  params={{ slug: project.slug }}
+                  className={`group block cursor-pointer ${project.size === "large" ? "sm:col-span-2 sm:row-span-1" : ""}`}
+                >
                   <div className={`relative rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 ${
                     project.size === "large" ? "h-80" : "h-64"
                   }`}>
@@ -118,7 +110,7 @@ function Projects() {
                       <h3 className="text-lg font-bold text-white drop-shadow-lg">{project.title}</h3>
                     </div>
                   </div>
-                </div>
+                </Link>
               </ScrollReveal>
             ))}
           </div>

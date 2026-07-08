@@ -1,11 +1,38 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { ScrollReveal } from "~/components/ScrollReveal";
+import { submitContact } from "~/server/functions";
 
 export const Route = createFileRoute("/contact")({
   component: Contact,
 });
 
+type FormStatus = "idle" | "sending" | "sent" | "error" | "not_configured";
+
 function Contact() {
+  const [form, setForm] = useState({ name: "", email: "", phone: "", service: "", message: "" });
+  const [status, setStatus] = useState<FormStatus>("idle");
+
+  const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+    setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (status === "sending") return;
+    setStatus("sending");
+    try {
+      const result = await submitContact({ data: form });
+      if (result.ok) {
+        setStatus("sent");
+        setForm({ name: "", email: "", phone: "", service: "", message: "" });
+      } else {
+        setStatus(result.error === "not_configured" ? "not_configured" : "error");
+      }
+    } catch {
+      setStatus("error");
+    }
+  };
+
   return (
     <>
       {/* Hero */}
@@ -42,7 +69,7 @@ function Contact() {
                 <p className="mt-2 text-gray-500 dark:text-gray-400">
                   Fill out the form and we'll be in touch shortly.
                 </p>
-                <form className="mt-8 space-y-5" onSubmit={(e) => e.preventDefault()}>
+                <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div>
                       <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
@@ -52,6 +79,8 @@ function Contact() {
                         type="text"
                         id="name"
                         required
+                        value={form.name}
+                        onChange={set("name")}
                         className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-dark-card text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200"
                         placeholder="Your name"
                       />
@@ -64,6 +93,8 @@ function Contact() {
                         type="email"
                         id="email"
                         required
+                        value={form.email}
+                        onChange={set("email")}
                         className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-dark-card text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200"
                         placeholder="your@email.com"
                       />
@@ -76,6 +107,8 @@ function Contact() {
                     <input
                       type="tel"
                       id="phone"
+                      value={form.phone}
+                      onChange={set("phone")}
                       className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-dark-card text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200"
                       placeholder="+250 XXX XXX XXX"
                     />
@@ -86,6 +119,8 @@ function Contact() {
                     </label>
                     <select
                       id="service"
+                      value={form.service}
+                      onChange={set("service")}
                       className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-dark-card text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200"
                     >
                       <option value="">Select a service...</option>
@@ -105,16 +140,44 @@ function Contact() {
                       id="message"
                       rows={5}
                       required
+                      value={form.message}
+                      onChange={set("message")}
                       className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-dark-card text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 resize-none"
                       placeholder="Tell us about your project..."
                     />
                   </div>
                   <button
                     type="submit"
-                    className="w-full sm:w-auto px-8 py-3.5 text-base font-semibold text-white bg-primary hover:bg-primary-dark rounded-xl transition-all duration-200 hover:shadow-xl hover:shadow-primary/25 active:scale-95"
+                    disabled={status === "sending"}
+                    className="w-full sm:w-auto px-8 py-3.5 text-base font-semibold text-white bg-primary hover:bg-primary-dark rounded-xl transition-all duration-200 hover:shadow-xl hover:shadow-primary/25 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Send Message
+                    {status === "sending" ? "Sending…" : "Send Message"}
                   </button>
+
+                  {status === "sent" && (
+                    <div className="flex items-start gap-3 p-4 rounded-xl bg-primary/10 border border-primary/30 text-sm text-primary-dark dark:text-primary-light">
+                      <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Thank you! Your message has been received — we'll get back to you within 24 hours.</span>
+                    </div>
+                  )}
+                  {status === "error" && (
+                    <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
+                      <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                      </svg>
+                      <span>Something went wrong sending your message. Please try again, or email us directly at info@rokiconstruction.rw.</span>
+                    </div>
+                  )}
+                  {status === "not_configured" && (
+                    <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-300">
+                      <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                      </svg>
+                      <span>Online submissions aren't available just yet — please email us directly at info@rokiconstruction.rw and we'll respond within 24 hours.</span>
+                    </div>
+                  )}
                 </form>
               </div>
             </ScrollReveal>
