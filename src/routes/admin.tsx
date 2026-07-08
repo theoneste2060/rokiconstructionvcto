@@ -8,6 +8,7 @@ import {
   listAdminUsers,
   resetAdminUserPassword,
   setAdminUserRole,
+  updateOwnProfile,
   type AdminAuth,
   type AdminStats,
   type AdminUser,
@@ -234,7 +235,20 @@ function Admin() {
     );
   }
 
-  return <Dashboard stats={stats} auth={auth} onStats={setStats} onLogout={handleLogout} />;
+  const handleAuthChange = (next: AdminAuth) => {
+    sessionStorage.setItem(AUTH_KEY, JSON.stringify(next));
+    setAuth(next);
+  };
+
+  return (
+    <Dashboard
+      stats={stats}
+      auth={auth}
+      onStats={setStats}
+      onAuth={handleAuthChange}
+      onLogout={handleLogout}
+    />
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -245,13 +259,16 @@ function Dashboard({
   stats,
   auth,
   onStats,
+  onAuth,
   onLogout,
 }: {
   stats: AdminStats;
   auth: AdminAuth;
   onStats: (s: AdminStats) => void;
+  onAuth: (a: AdminAuth) => void;
   onLogout: () => void;
 }) {
+  const [profileOpen, setProfileOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const [section, setSection] = useState<Section>("overview");
   const [collapsed, setCollapsed] = useState(false);
@@ -570,6 +587,18 @@ function Dashboard({
                       {stats.role === "super" ? "Super Admin" : "Admin"} · Site dashboard
                     </div>
                   </div>
+                  <button
+                    onClick={() => {
+                      closeMenus();
+                      setProfileOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    My Profile
+                  </button>
                   <Link
                     to="/"
                     onClick={closeMenus}
@@ -609,6 +638,112 @@ function Dashboard({
           </p>
         </main>
       </div>
+
+      {profileOpen && (
+        <ProfileModal auth={auth} username={stats.username} onAuth={onAuth} onClose={() => setProfileOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// My Profile (self-service username / password change)
+// ---------------------------------------------------------------------------
+
+function ProfileModal({
+  auth,
+  username,
+  onAuth,
+  onClose,
+}: {
+  auth: AdminAuth;
+  username: string;
+  onAuth: (a: AdminAuth) => void;
+  onClose: () => void;
+}) {
+  const [newUsername, setNewUsername] = useState(username);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+
+  const inputCls =
+    "mt-1.5 w-full px-4 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-dark-bg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary";
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    if (newPassword && newPassword !== confirm) {
+      setMessage({ kind: "error", text: "Passwords do not match." });
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const result = await updateOwnProfile({
+      data: { auth, newUsername, newPassword },
+    }).catch(() => ({ ok: false as const, error: "Server error." }));
+    if (result.ok) {
+      onAuth({
+        username: result.username ?? auth.username,
+        password: newPassword || auth.password,
+      });
+      setMessage({ kind: "ok", text: "Profile updated." });
+      setNewPassword("");
+      setConfirm("");
+    } else {
+      setMessage({ kind: "error", text: ("error" in result && result.error) || "Something went wrong." });
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <form
+        onSubmit={handleSave}
+        className="relative w-full max-w-sm p-6 rounded-2xl bg-white dark:bg-dark-card border border-gray-200 dark:border-gray-800 shadow-2xl"
+      >
+        <h2 className="text-lg font-bold text-gray-900 dark:text-white font-display">My Profile</h2>
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          Change your own username or password. Leave the password blank to keep it.
+        </p>
+
+        <label className="block mt-4 text-xs font-semibold text-gray-600 dark:text-gray-300">
+          Username
+          <input className={inputCls} value={newUsername} autoCapitalize="none" onChange={(e) => setNewUsername(e.target.value)} />
+        </label>
+        <label className="block mt-3 text-xs font-semibold text-gray-600 dark:text-gray-300">
+          New Password
+          <input className={inputCls} type="password" value={newPassword} placeholder="••••••••" onChange={(e) => setNewPassword(e.target.value)} />
+        </label>
+        <label className="block mt-3 text-xs font-semibold text-gray-600 dark:text-gray-300">
+          Confirm New Password
+          <input className={inputCls} type="password" value={confirm} placeholder="••••••••" onChange={(e) => setConfirm(e.target.value)} />
+        </label>
+
+        {message && (
+          <p className={`mt-3 text-sm font-medium ${message.kind === "ok" ? "text-primary dark:text-primary-light" : "text-red-600 dark:text-red-400"}`}>
+            {message.text}
+          </p>
+        )}
+
+        <div className="mt-5 flex gap-3">
+          <button
+            type="submit"
+            disabled={busy || !newUsername}
+            className="flex-1 px-6 py-2.5 text-sm font-semibold text-white bg-primary hover:bg-primary-dark rounded-xl transition-colors disabled:opacity-60"
+          >
+            {busy ? "Saving…" : "Save Changes"}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-5 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-700 rounded-xl hover:border-primary transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -946,5 +1081,28 @@ function AnalyticsSection({ stats }: { stats: AdminStats }) {
 }
 
 function SubmissionsSection({ stats }: { stats: AdminStats }) {
-  return <SubmissionsTable stats={stats} />;
+  return (
+    <div className="space-y-8">
+      <SubmissionsTable stats={stats} />
+      <div className="p-6 rounded-2xl bg-white dark:bg-dark-card border border-gray-200 dark:border-gray-800">
+        <h2 className="font-semibold text-gray-900 dark:text-white">Newsletter Subscribers</h2>
+        {stats.subscribers.length === 0 ? (
+          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">No subscribers yet.</p>
+        ) : (
+          <ul className="mt-5 divide-y divide-gray-100 dark:divide-gray-800/60">
+            {stats.subscribers.map((sub) => (
+              <li key={sub.id} className="py-2.5 flex items-center justify-between gap-4 text-sm">
+                <a href={`mailto:${sub.email}`} className="font-medium text-primary dark:text-primary-light hover:underline">
+                  {sub.email}
+                </a>
+                <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
+                  {new Date(sub.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
 }

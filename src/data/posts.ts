@@ -8,6 +8,8 @@ export type Post = {
   image: string;
   author: { name: string; role: string; photo: string };
   body: string[];
+  /** Rich-text HTML authored in the admin editor; overrides `body` when set. */
+  bodyHtml?: string;
 };
 
 export const posts: Post[] = [

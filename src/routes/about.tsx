@@ -92,11 +92,18 @@ function About() {
                   Our Story
                 </h2>
               </ScrollReveal>
-              {about.storyParagraphs.map((para, i) => (
-                <ScrollReveal key={i} delay={150 + i * 50}>
-                  <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{para}</p>
-                </ScrollReveal>
-              ))}
+              {about.storyHtml ? (
+                <div
+                  className="rich-content text-gray-600 dark:text-gray-400"
+                  dangerouslySetInnerHTML={{ __html: about.storyHtml }}
+                />
+              ) : (
+                about.storyParagraphs.map((para, i) => (
+                  <ScrollReveal key={i} delay={150 + i * 50}>
+                    <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{para}</p>
+                  </ScrollReveal>
+                ))
+              )}
             </div>
           </div>
         </div>

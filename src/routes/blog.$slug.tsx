@@ -91,12 +91,21 @@ function BlogPost() {
             </div>
           </ScrollReveal>
 
-          <div className="mt-8 space-y-6">
-            {post.body.map((para, i) => (
-              <ScrollReveal key={i} delay={Math.min(i * 40, 200)}>
-                <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg">{para}</p>
-              </ScrollReveal>
-            ))}
+          <div className="mt-8">
+            {post.bodyHtml ? (
+              <div
+                className="rich-content text-lg text-gray-700 dark:text-gray-300"
+                dangerouslySetInnerHTML={{ __html: post.bodyHtml }}
+              />
+            ) : (
+              <div className="space-y-6">
+                {post.body.map((para, i) => (
+                  <ScrollReveal key={i} delay={Math.min(i * 40, 200)}>
+                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg">{para}</p>
+                  </ScrollReveal>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* CTA */}

@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createHash, randomBytes } from "node:crypto";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { contentKeys, defaultContent, type SiteContent } from "~/data/content";
 
@@ -73,6 +73,12 @@ async function openDb(): Promise<Db> {
       key text primary key,
       value text not null,
       updated_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    )`);
+  db.run(`
+    create table if not exists newsletter_subscribers (
+      id integer primary key autoincrement,
+      email text not null unique,
+      created_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     )`);
   db.run(`
     create table if not exists admin_users (
@@ -415,6 +421,7 @@ export type AdminStats = {
     message: string;
     created_at: string;
   }[];
+  subscribers: { id: number; email: string; created_at: string }[];
 };
 
 const unauthorized: AdminStats = {
@@ -426,6 +433,7 @@ const unauthorized: AdminStats = {
   viewsByDay: [],
   topPages: [],
   submissions: [],
+  subscribers: [],
 };
 
 export const getAdminStats = createServerFn({ method: "POST" })
@@ -457,6 +465,9 @@ export const getAdminStats = createServerFn({ method: "POST" })
         select id, name, email, phone, service, message, created_at
         from contact_submissions
         order by created_at desc limit 20`);
+      const subscribers = db.all(`
+        select id, email, created_at from newsletter_subscribers
+        order by created_at desc limit 50`);
 
       return {
         authorized: true,
@@ -475,9 +486,157 @@ export const getAdminStats = createServerFn({ method: "POST" })
           message: String(r.message),
           created_at: String(r.created_at),
         })),
+        subscribers: subscribers.map((r) => ({
+          id: Number(r.id),
+          email: String(r.email),
+          created_at: String(r.created_at),
+        })),
       };
     } catch (err) {
       console.error("admin stats failed:", err);
       return unauthorized;
+    }
+  });
+
+
+// ---------------------------------------------------------------------------
+// Newsletter
+// ---------------------------------------------------------------------------
+
+export const subscribeNewsletter = createServerFn({ method: "POST" })
+  .validator((data: { email: string }) => {
+    const email = String(data.email ?? "").trim().toLowerCase().slice(0, 200);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error("Please enter a valid email address.");
+    }
+    return { email };
+  })
+  .handler(async ({ data }): Promise<{ ok: boolean }> => {
+    try {
+      const db = await openDb();
+      db.run(`insert into newsletter_subscribers (email) values (?) on conflict(email) do nothing`, [data.email]);
+      return { ok: true };
+    } catch (err) {
+      console.error("newsletter subscribe failed:", err);
+      return { ok: false };
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// Image library (upload + list) for the admin editor
+// ---------------------------------------------------------------------------
+
+const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "gif"]);
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+
+export const listImages = createServerFn({ method: "POST" })
+  .validator((data: { auth: AdminAuth }) => ({ auth: cleanAuth(data.auth ?? {}) }))
+  .handler(async ({ data }): Promise<{ ok: boolean; images: string[] }> => {
+    try {
+      const db = await openDb();
+      if (!verifyUser(db, data.auth)) return { ok: false, images: [] };
+      const base = path.join(process.cwd(), "public", "images");
+      const scan = (dir: string, prefix: string): string[] => {
+        if (!existsSync(dir)) return [];
+        return readdirSync(dir, { withFileTypes: true })
+          .filter((e) => e.isFile() && IMAGE_EXTENSIONS.has(e.name.split(".").pop()?.toLowerCase() ?? ""))
+          .map((e) => `${prefix}/${e.name}`);
+      };
+      // uploads first (newest naming sorts last, so reverse), then the stock set
+      const uploads = scan(path.join(base, "uploads"), "/images/uploads").sort().reverse();
+      const stock = scan(base, "/images").sort();
+      return { ok: true, images: [...uploads, ...stock] };
+    } catch (err) {
+      console.error("listImages failed:", err);
+      return { ok: false, images: [] };
+    }
+  });
+
+export const uploadImage = createServerFn({ method: "POST" })
+  .validator((data: { auth: AdminAuth; filename: string; dataBase64: string }) => ({
+    auth: cleanAuth(data.auth ?? {}),
+    filename: String(data.filename ?? "image.png"),
+    dataBase64: String(data.dataBase64 ?? ""),
+  }))
+  .handler(async ({ data }): Promise<{ ok: boolean; path?: string; error?: string }> => {
+    try {
+      const db = await openDb();
+      if (!verifyUser(db, data.auth)) return { ok: false, error: "Unauthorized." };
+
+      const ext = data.filename.split(".").pop()?.toLowerCase() ?? "";
+      if (!IMAGE_EXTENSIONS.has(ext)) {
+        return { ok: false, error: "Only PNG, JPG, WEBP, or GIF images are allowed." };
+      }
+      const bytes = Buffer.from(data.dataBase64, "base64");
+      if (bytes.length === 0) return { ok: false, error: "Empty file." };
+      if (bytes.length > MAX_UPLOAD_BYTES) return { ok: false, error: "Image is too large (max 8 MB)." };
+
+      const stem = data.filename
+        .replace(/\.[^.]+$/, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 60) || "image";
+      const name = `${Date.now()}-${stem}.${ext}`;
+
+      // Persist in public/ (survives rebuilds — vite copies it into the next
+      // build) and mirror into the live dist/client so it serves immediately.
+      const publicDir = path.join(process.cwd(), "public", "images", "uploads");
+      mkdirSync(publicDir, { recursive: true });
+      writeFileSync(path.join(publicDir, name), bytes);
+      try {
+        const distDir = path.join(process.cwd(), "dist", "client", "images", "uploads");
+        mkdirSync(distDir, { recursive: true });
+        writeFileSync(path.join(distDir, name), bytes);
+      } catch {
+        // no dist (dev server) — public/ alone is enough there
+      }
+      return { ok: true, path: `/images/uploads/${name}` };
+    } catch (err) {
+      console.error("uploadImage failed:", err);
+      return { ok: false, error: "Upload failed on the server." };
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// Self-service profile
+// ---------------------------------------------------------------------------
+
+export const updateOwnProfile = createServerFn({ method: "POST" })
+  .validator((data: { auth: AdminAuth; newUsername?: string; newPassword?: string }) => ({
+    auth: cleanAuth(data.auth ?? {}),
+    newUsername: String(data.newUsername ?? "").trim().toLowerCase().slice(0, 40),
+    newPassword: String(data.newPassword ?? ""),
+  }))
+  .handler(async ({ data }): Promise<{ ok: boolean; username?: string; error?: string }> => {
+    try {
+      const db = await openDb();
+      const account = verifyUser(db, data.auth);
+      if (!account) return { ok: false, error: "Unauthorized." };
+
+      let username = account.username;
+      if (data.newUsername && data.newUsername !== account.username) {
+        if (!validUsername(data.newUsername)) {
+          return { ok: false, error: "Username must be 3-40 chars: letters, numbers, dots, dashes." };
+        }
+        if (db.all(`select id from admin_users where username = ?`, [data.newUsername]).length > 0) {
+          return { ok: false, error: "That username is already taken." };
+        }
+        db.run(`update admin_users set username = ? where id = ?`, [data.newUsername, account.id]);
+        username = data.newUsername;
+      }
+      if (data.newPassword) {
+        if (data.newPassword.length < 6) return { ok: false, error: "Password must be at least 6 characters." };
+        const salt = randomBytes(16).toString("hex");
+        db.run(`update admin_users set password_hash = ?, salt = ? where id = ?`, [
+          hashPassword(data.newPassword, salt),
+          salt,
+          account.id,
+        ]);
+      }
+      return { ok: true, username };
+    } catch (err) {
+      console.error("updateOwnProfile failed:", err);
+      return { ok: false, error: "Server error." };
     }
   });

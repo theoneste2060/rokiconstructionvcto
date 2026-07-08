@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { Logo } from "./Logo";
 import { useContent } from "~/hooks/useContent";
+import { subscribeNewsletter } from "~/server/functions";
 
 const services = [
   { name: "Architectural Design", href: "/services#architectural" },
@@ -21,6 +23,22 @@ const quickLinks = [
 
 export function Footer() {
   const { settings } = useContent();
+  const [email, setEmail] = useState("");
+  const [newsStatus, setNewsStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newsStatus === "sending" || !email) return;
+    setNewsStatus("sending");
+    try {
+      const result = await subscribeNewsletter({ data: { email } });
+      setNewsStatus(result.ok ? "done" : "error");
+      if (result.ok) setEmail("");
+    } catch {
+      setNewsStatus("error");
+    }
+  };
+
   return (
     <footer className="bg-secondary text-gray-300 dark:bg-dark-bg border-t border-gray-800/50">
       {/* Main footer */}
@@ -95,19 +113,32 @@ export function Footer() {
             <p className="text-sm text-gray-400 mb-4">
               Subscribe to our newsletter for the latest projects and industry insights.
             </p>
-            <form className="flex gap-2" onSubmit={(e) => e.preventDefault()}>
+            <form className="flex gap-2" onSubmit={handleSubscribe}>
               <input
                 type="email"
+                required
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setNewsStatus("idle");
+                }}
                 placeholder="Your email"
                 className="flex-1 min-w-0 px-3 py-2.5 text-sm bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-colors"
               />
               <button
                 type="submit"
-                className="px-4 py-2.5 text-sm font-semibold text-white bg-primary hover:bg-primary-dark rounded-lg transition-colors shrink-0"
+                disabled={newsStatus === "sending"}
+                className="px-4 py-2.5 text-sm font-semibold text-white bg-primary hover:bg-primary-dark rounded-lg transition-colors shrink-0 disabled:opacity-60"
               >
-                Subscribe
+                {newsStatus === "sending" ? "…" : "Subscribe"}
               </button>
             </form>
+            {newsStatus === "done" && (
+              <p className="mt-3 text-sm text-primary-light">✓ You're subscribed — thank you!</p>
+            )}
+            {newsStatus === "error" && (
+              <p className="mt-3 text-sm text-red-400">Something went wrong — please check the email and try again.</p>
+            )}
           </div>
         </div>
       </div>

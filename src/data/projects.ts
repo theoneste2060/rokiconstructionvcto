@@ -9,6 +9,8 @@ export type Project = {
   featured: boolean;
   summary: string;
   description: string[];
+  /** Rich-text HTML authored in the admin editor; overrides `description` when set. */
+  descriptionHtml?: string;
   scope: string[];
   stats: { label: string; value: string }[];
 };

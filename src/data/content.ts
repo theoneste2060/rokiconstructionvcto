@@ -43,8 +43,12 @@ export type ServiceContent = {
   tagline: string;
   short: string;
   description: string;
+  /** Rich-text HTML authored in the admin editor; overrides `description` when set. */
+  descriptionHtml?: string;
   highlights: string[];
   image: string;
+  /** Icon name from the ServiceIcon library; falls back to `id` for legacy content. */
+  icon?: string;
 };
 
 export type AboutContent = {
@@ -52,6 +56,8 @@ export type AboutContent = {
   heroTitle2: string;
   heroIntro: string;
   storyParagraphs: string[];
+  /** Rich-text HTML; overrides storyParagraphs when set. */
+  storyHtml?: string;
   storyImage: string;
   values: { title: string; description: string }[];
   team: { name: string; role: string; bio: string; photo: string }[];
@@ -131,6 +137,7 @@ export const defaultContent: SiteContent = {
   services: [
     {
       id: "architectural",
+      icon: "architectural",
       title: "Architectural Design",
       tagline: "Innovative designs that inspire and endure",
       short: "Innovative, sustainable designs that blend modern aesthetics with Rwandan cultural heritage.",
@@ -147,6 +154,7 @@ export const defaultContent: SiteContent = {
     },
     {
       id: "geotechnical",
+      icon: "geotechnical",
       title: "Geotechnical Engineering",
       tagline: "Foundations you can trust",
       short: "Comprehensive soil analysis and foundation solutions for safe, durable structures.",
@@ -163,6 +171,7 @@ export const defaultContent: SiteContent = {
     },
     {
       id: "sustainability",
+      icon: "sustainability",
       title: "Sustainability Consulting",
       tagline: "Building green for a better tomorrow",
       short: "Eco-friendly building solutions that reduce environmental impact and operational costs.",
@@ -179,6 +188,7 @@ export const defaultContent: SiteContent = {
     },
     {
       id: "landscaping",
+      icon: "landscaping",
       title: "Landscaping & Site Development",
       tagline: "Beautiful outdoor environments",
       short: "Beautiful outdoor spaces and comprehensive site preparation for any development.",
@@ -195,6 +205,7 @@ export const defaultContent: SiteContent = {
     },
     {
       id: "management",
+      icon: "management",
       title: "Project Management",
       tagline: "On time, on budget, every time",
       short: "End-to-end project oversight ensuring on-time, on-budget, quality delivery.",

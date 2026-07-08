@@ -91,11 +91,18 @@ function ProjectDetail() {
                   About This Project
                 </h2>
               </ScrollReveal>
-              {project.description.map((para, i) => (
-                <ScrollReveal key={i} delay={100 + i * 50}>
-                  <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{para}</p>
-                </ScrollReveal>
-              ))}
+              {project.descriptionHtml ? (
+                <div
+                  className="rich-content text-gray-600 dark:text-gray-400"
+                  dangerouslySetInnerHTML={{ __html: project.descriptionHtml }}
+                />
+              ) : (
+                project.description.map((para, i) => (
+                  <ScrollReveal key={i} delay={100 + i * 50}>
+                    <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{para}</p>
+                  </ScrollReveal>
+                ))
+              )}
             </div>
 
             {/* Scope */}

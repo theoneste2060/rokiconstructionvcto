@@ -60,7 +60,7 @@ function Services() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
                   {/* Floating service icon badge */}
                   <div className="absolute bottom-5 left-5 w-14 h-14 flex items-center justify-center rounded-2xl bg-white/90 dark:bg-dark-card/90 backdrop-blur-sm text-primary dark:text-primary-light shadow-lg">
-                    <ServiceIcon id={service.id} className="w-8 h-8" />
+                    <ServiceIcon id={service.icon ?? service.id} className="w-8 h-8" />
                   </div>
                 </div>
               </ScrollReveal>
@@ -74,7 +74,14 @@ function Services() {
                   <p className="mt-3 text-lg text-primary font-medium">{service.tagline}</p>
                 </ScrollReveal>
                 <ScrollReveal delay={200}>
-                  <p className="mt-4 text-gray-600 dark:text-gray-400 leading-relaxed">{service.description}</p>
+                  {service.descriptionHtml ? (
+                    <div
+                      className="rich-content mt-4 text-gray-600 dark:text-gray-400"
+                      dangerouslySetInnerHTML={{ __html: service.descriptionHtml }}
+                    />
+                  ) : (
+                    <p className="mt-4 text-gray-600 dark:text-gray-400 leading-relaxed">{service.description}</p>
+                  )}
                 </ScrollReveal>
                 <ScrollReveal delay={250}>
                   <ul className="mt-6 space-y-3">

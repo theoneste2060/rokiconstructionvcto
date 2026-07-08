@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import type { SiteContent } from "~/data/content";
 import { getSiteContent, resetSiteContent, saveSiteContent, type AdminAuth } from "~/server/functions";
+import { ServiceIcon, iconNames } from "~/components/ServiceIcon";
+import { ImagePickerModal } from "./ImagePicker";
+import { RichTextEditor, paragraphsToHtml } from "./RichTextEditor";
 
 /**
  * Schema-driven editor for every editable collection on the site. Values are
@@ -8,7 +11,7 @@ import { getSiteContent, resetSiteContent, saveSiteContent, type AdminAuth } fro
  * whole JSON documents per collection key.
  */
 
-type FieldType = "text" | "textarea" | "lines" | "paragraphs" | "pairs" | "image";
+type FieldType = "text" | "textarea" | "lines" | "paragraphs" | "pairs" | "image" | "icon" | "richtext";
 
 type Field = {
   key: string; // dot-path into the item/object
@@ -17,6 +20,8 @@ type Field = {
   hint?: string;
   /** for type "pairs": the two object keys, e.g. ["value","label"] */
   pairKeys?: [string, string];
+  /** for type "richtext": legacy paragraph-array key used to seed the editor */
+  fallbackKey?: string;
 };
 
 type Collection = {
@@ -98,9 +103,10 @@ const collections: Collection[] = [
       { key: "title", label: "Title", type: "text" },
       { key: "tagline", label: "Tagline", type: "text" },
       { key: "short", label: "Short Description (homepage card)", type: "textarea" },
-      { key: "description", label: "Full Description", type: "textarea" },
+      { key: "descriptionHtml", label: "Full Description", type: "richtext", fallbackKey: "description" },
       { key: "highlights", label: "Highlights (one per line)", type: "lines" },
       { key: "image", label: "Image", type: "image" },
+      { key: "icon", label: "Icon", type: "icon" },
     ],
   },
   {
@@ -111,7 +117,7 @@ const collections: Collection[] = [
       { key: "heroTitle1", label: "Hero Title Line 1", type: "text" },
       { key: "heroTitle2", label: "Hero Title Line 2 (green)", type: "text" },
       { key: "heroIntro", label: "Hero Intro", type: "textarea" },
-      { key: "storyParagraphs", label: "Our Story (blank line between paragraphs)", type: "paragraphs" },
+      { key: "storyHtml", label: "Our Story", type: "richtext", fallbackKey: "storyParagraphs" },
       { key: "storyImage", label: "Story Image", type: "image" },
       { key: "values", label: "Values (Title | Description per line)", type: "pairs", pairKeys: ["title", "description"] },
     ],
@@ -170,7 +176,7 @@ const collections: Collection[] = [
       { key: "size", label: "Card Size (small / medium / large)", type: "text" },
       { key: "featured", label: "Featured on homepage (true / false)", type: "text" },
       { key: "summary", label: "Summary (SEO + cards)", type: "textarea" },
-      { key: "description", label: "Description (blank line between paragraphs)", type: "paragraphs" },
+      { key: "descriptionHtml", label: "Description", type: "richtext", fallbackKey: "description" },
       { key: "scope", label: "Scope of Work (one per line)", type: "lines" },
       { key: "stats", label: "Stats (Label | Value per line)", type: "pairs", pairKeys: ["label", "value"] },
     ],
@@ -201,7 +207,7 @@ const collections: Collection[] = [
       { key: "author.name", label: "Author Name", type: "text" },
       { key: "author.role", label: "Author Role", type: "text" },
       { key: "author.photo", label: "Author Photo", type: "image" },
-      { key: "body", label: "Article Body (blank line between paragraphs)", type: "paragraphs" },
+      { key: "bodyHtml", label: "Article Body", type: "richtext", fallbackKey: "body" },
     ],
   },
   {
@@ -318,27 +324,83 @@ function FieldInput({
   field,
   value,
   onChange,
+  auth,
 }: {
   field: Field;
   value: unknown;
   onChange: (v: unknown) => void;
+  auth: AdminAuth;
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
   const text = toText(field, value);
   const rows = field.type === "paragraphs" ? 8 : field.type === "textarea" ? 3 : 3;
+
+  if (field.type === "richtext") {
+    return (
+      <div className="block">
+        <span className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">{field.label}</span>
+        <RichTextEditor value={typeof value === "string" ? value : ""} onChange={onChange} auth={auth} />
+        {field.hint && <span className="block mt-1 text-[11px] text-gray-400">{field.hint}</span>}
+      </div>
+    );
+  }
+
+  if (field.type === "icon") {
+    const current = typeof value === "string" && value ? value : "architectural";
+    return (
+      <div className="block">
+        <span className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">{field.label}</span>
+        <div className="flex flex-wrap gap-1.5 p-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-dark-bg">
+          {iconNames.map((name) => (
+            <button
+              key={name}
+              type="button"
+              title={name}
+              onClick={() => onChange(name)}
+              className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
+                current === name
+                  ? "bg-primary text-white shadow-md"
+                  : "text-gray-500 dark:text-gray-400 hover:bg-primary/10 hover:text-primary"
+              }`}
+            >
+              <ServiceIcon id={name} className="w-5 h-5" />
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <label className="block">
       <span className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">{field.label}</span>
       {field.type === "text" ? (
         <input className={inputCls} value={text} onChange={(e) => onChange(fromText(field, e.target.value))} />
       ) : field.type === "image" ? (
-        <span className="flex items-center gap-3">
-          <input
-            className={inputCls}
-            list="admin-image-options"
-            value={text}
-            onChange={(e) => onChange(fromText(field, e.target.value))}
-          />
-          {text && <img src={text} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-200 dark:border-gray-700 shrink-0" />}
+        <span className="flex items-center gap-2">
+          {text ? (
+            <img src={text} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-200 dark:border-gray-700 shrink-0" />
+          ) : (
+            <span className="w-10 h-10 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 shrink-0" />
+          )}
+          <input className={inputCls} value={text} onChange={(e) => onChange(fromText(field, e.target.value))} />
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="shrink-0 px-3 py-2 text-xs font-semibold text-primary dark:text-primary-light border border-primary/40 rounded-lg hover:bg-primary/5 transition-colors"
+          >
+            Browse…
+          </button>
+          {pickerOpen && (
+            <ImagePickerModal
+              auth={auth}
+              onSelect={(path) => {
+                onChange(path);
+                setPickerOpen(false);
+              }}
+              onClose={() => setPickerOpen(false)}
+            />
+          )}
         </span>
       ) : (
         <textarea
@@ -395,12 +457,6 @@ export function ContentEditor({ auth }: { auth: AdminAuth }) {
 
   return (
     <div className="space-y-6">
-      <datalist id="admin-image-options">
-        {knownImages.map((img) => (
-          <option key={img} value={img} />
-        ))}
-      </datalist>
-
       {/* Collection tabs */}
       <div className="flex flex-wrap gap-2">
         {collections.map((c) => (
@@ -429,7 +485,12 @@ export function ContentEditor({ auth }: { auth: AdminAuth }) {
               <div key={f.key} className={f.type === "text" || f.type === "image" ? "" : "md:col-span-2"}>
                 <FieldInput
                   field={f}
-                  value={getPath(value, f.key)}
+                  auth={auth}
+                  value={
+                    f.type === "richtext"
+                      ? (getPath(value, f.key) as string) || paragraphsToHtml(getPath(value, f.fallbackKey ?? ""))
+                      : getPath(value, f.key)
+                  }
                   onChange={(v) => {
                     const next = { ...(value as Record<string, unknown>) };
                     setPath(next, f.key, v);
@@ -494,7 +555,12 @@ export function ContentEditor({ auth }: { auth: AdminAuth }) {
                     <div key={f.key} className={f.type === "text" || f.type === "image" ? "" : "md:col-span-2"}>
                       <FieldInput
                         field={f}
-                        value={getPath(item, f.key)}
+                        auth={auth}
+                        value={
+                          f.type === "richtext"
+                            ? (getPath(item, f.key) as string) || paragraphsToHtml(getPath(item, f.fallbackKey ?? ""))
+                            : getPath(item, f.key)
+                        }
                         onChange={(v) => {
                           const nextItem = structuredClone(item);
                           setPath(nextItem, f.key, v);

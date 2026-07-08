@@ -120,7 +120,7 @@ function RootDocument({
   siteChrome: boolean;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>

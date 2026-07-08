@@ -125,7 +125,7 @@ function Home() {
               <ScrollReveal key={service.title} delay={i * 100}>
                 <div className="group relative p-6 rounded-2xl bg-card-gradient dark:bg-dark-card border border-gray-200 dark:border-gray-800 hover:border-primary/40 dark:hover:border-primary/40 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1">
                   <div className="w-12 h-12 flex items-center justify-center rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-light group-hover:bg-primary group-hover:text-white transition-all duration-300">
-                    <ServiceIcon id={service.id} />
+                    <ServiceIcon id={service.icon ?? service.id} />
                   </div>
                   <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
                     {service.title}
