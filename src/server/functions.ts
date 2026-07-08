@@ -1,41 +1,81 @@
 import { createServerFn } from "@tanstack/react-start";
-import { sql } from "~/db";
-
-const dbConfigured = () => Boolean(process.env.DATABASE_URL);
+import { mkdirSync } from "node:fs";
+import path from "node:path";
 
 /**
- * Lazily create the tables the site needs. Cached module-level so the DDL runs
- * at most once per server process; reset on failure so a transient error
- * doesn't poison every later request.
+ * Admin dashboard password. Override with the ADMIN_PASSWORD env var in
+ * production if you want to rotate it without a code change.
  */
-let tablesReady: Promise<void> | null = null;
-const ensureTables = () => {
-  tablesReady ??= (async () => {
-    const db = sql();
-    await db`
-      create table if not exists contact_submissions (
-        id serial primary key,
-        name text not null,
-        email text not null,
-        phone text not null default '',
-        service text not null default '',
-        message text not null,
-        created_at timestamptz not null default now()
-      )`;
-    await db`
-      create table if not exists page_views (
-        id bigserial primary key,
-        path text not null,
-        referrer text not null default '',
-        user_agent text not null default '',
-        created_at timestamptz not null default now()
-      )`;
-  })().catch((err) => {
-    tablesReady = null;
-    throw err;
-  });
-  return tablesReady;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "@Prefet3574";
+
+// ---------------------------------------------------------------------------
+// SQLite storage
+//
+// The site persists to a local SQLite file (.data/site.db) — no external
+// database service needed. The preview/production server runs under Bun, so
+// we use bun:sqlite; when the bundle runs under plain Node (e.g. the Vercel
+// entry), we fall back to node:sqlite (Node 22.5+).
+// ---------------------------------------------------------------------------
+
+type Db = {
+  run: (query: string, params?: (string | number)[]) => void;
+  all: (query: string, params?: (string | number)[]) => Record<string, unknown>[];
 };
+
+let dbInstance: Db | null = null;
+
+async function openDb(): Promise<Db> {
+  if (dbInstance) return dbInstance;
+
+  const dir = path.join(process.cwd(), ".data");
+  mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, "site.db");
+
+  // Import via a variable specifier so neither TypeScript nor Vite tries to
+  // resolve the runtime-specific builtin at build time.
+  let db: Db;
+  try {
+    const spec = "bun:sqlite";
+    const { Database } = await import(/* @vite-ignore */ spec);
+    const raw = new Database(file);
+    raw.exec("pragma journal_mode = WAL");
+    db = {
+      run: (q, p = []) => raw.prepare(q).run(...p),
+      all: (q, p = []) => raw.prepare(q).all(...p) as Record<string, unknown>[],
+    };
+  } catch {
+    const spec = "node:sqlite";
+    const { DatabaseSync } = await import(/* @vite-ignore */ spec);
+    const raw = new DatabaseSync(file);
+    raw.exec("pragma journal_mode = WAL");
+    db = {
+      run: (q, p = []) => raw.prepare(q).run(...p),
+      all: (q, p = []) => raw.prepare(q).all(...p) as Record<string, unknown>[],
+    };
+  }
+
+  db.run(`
+    create table if not exists contact_submissions (
+      id integer primary key autoincrement,
+      name text not null,
+      email text not null,
+      phone text not null default '',
+      service text not null default '',
+      message text not null,
+      created_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    )`);
+  db.run(`
+    create table if not exists page_views (
+      id integer primary key autoincrement,
+      path text not null,
+      referrer text not null default '',
+      user_agent text not null default '',
+      created_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    )`);
+
+  dbInstance = db;
+  return db;
+}
 
 // ---------------------------------------------------------------------------
 // Contact form
@@ -61,21 +101,18 @@ export const submitContact = createServerFn({ method: "POST" })
     }
     return { name, email, phone, service, message };
   })
-  .handler(async ({ data }): Promise<{ ok: boolean; error?: string }> => {
-    if (!dbConfigured()) {
-      // Site owner hasn't connected a database yet — tell the visitor to email
-      // directly instead of silently dropping their message.
-      return { ok: false, error: "not_configured" };
-    }
+  .handler(async ({ data }): Promise<{ ok: boolean }> => {
     try {
-      await ensureTables();
-      await sql()`
-        insert into contact_submissions (name, email, phone, service, message)
-        values (${data.name}, ${data.email}, ${data.phone}, ${data.service}, ${data.message})`;
+      const db = await openDb();
+      db.run(
+        `insert into contact_submissions (name, email, phone, service, message)
+         values (?, ?, ?, ?, ?)`,
+        [data.name, data.email, data.phone, data.service, data.message],
+      );
       return { ok: true };
     } catch (err) {
       console.error("contact submission failed:", err);
-      return { ok: false, error: "server_error" };
+      return { ok: false };
     }
   });
 
@@ -91,12 +128,12 @@ export const trackPageView = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data }) => {
     // Analytics must never break the site — swallow every failure.
-    if (!dbConfigured()) return { ok: false };
     try {
-      await ensureTables();
-      await sql()`
-        insert into page_views (path, referrer, user_agent)
-        values (${data.path}, ${data.referrer}, ${data.userAgent})`;
+      const db = await openDb();
+      db.run(
+        `insert into page_views (path, referrer, user_agent) values (?, ?, ?)`,
+        [data.path, data.referrer, data.userAgent],
+      );
       return { ok: true };
     } catch (err) {
       console.error("page view tracking failed:", err);
@@ -105,11 +142,11 @@ export const trackPageView = createServerFn({ method: "POST" })
   });
 
 // ---------------------------------------------------------------------------
-// Admin dashboard
+// Admin dashboard (password-protected)
 // ---------------------------------------------------------------------------
 
 export type AdminStats = {
-  configured: boolean;
+  authorized: boolean;
   totalViews: number;
   viewsByDay: { day: string; views: number }[];
   topPages: { path: string; views: number }[];
@@ -124,40 +161,44 @@ export type AdminStats = {
   }[];
 };
 
-export const getAdminStats = createServerFn({ method: "GET" }).handler(
-  async (): Promise<AdminStats> => {
-    const empty: AdminStats = {
-      configured: false,
-      totalViews: 0,
-      viewsByDay: [],
-      topPages: [],
-      submissions: [],
-    };
-    if (!dbConfigured()) return empty;
+const unauthorized: AdminStats = {
+  authorized: false,
+  totalViews: 0,
+  viewsByDay: [],
+  topPages: [],
+  submissions: [],
+};
+
+export const getAdminStats = createServerFn({ method: "POST" })
+  .inputValidator((data: { password: string }) => ({
+    password: String(data.password ?? ""),
+  }))
+  .handler(async ({ data }): Promise<AdminStats> => {
+    // The password check lives server-side so the data itself is protected,
+    // not just the page that renders it.
+    if (data.password !== ADMIN_PASSWORD) return unauthorized;
+
     try {
-      await ensureTables();
-      const db = sql();
-      const [totals, byDay, topPages, submissions] = await Promise.all([
-        db`select count(*)::int as total from page_views`,
-        db`
-          select to_char(date_trunc('day', created_at), 'YYYY-MM-DD') as day,
-                 count(*)::int as views
-          from page_views
-          where created_at > now() - interval '14 days'
-          group by 1 order by 1`,
-        db`
-          select path, count(*)::int as views
-          from page_views
-          where created_at > now() - interval '30 days'
-          group by path order by views desc limit 10`,
-        db`
-          select id, name, email, phone, service, message, created_at
-          from contact_submissions
-          order by created_at desc limit 20`,
-      ]);
+      const db = await openDb();
+      const totals = db.all(`select count(*) as total from page_views`);
+      const byDay = db.all(`
+        select date(created_at) as day, count(*) as views
+        from page_views
+        where created_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-14 days')
+        group by 1 order by 1`);
+      const topPages = db.all(`
+        select path, count(*) as views
+        from page_views
+        where created_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days')
+        group by path order by views desc limit 10`);
+      const submissions = db.all(`
+        select id, name, email, phone, service, message, created_at
+        from contact_submissions
+        order by created_at desc limit 20`);
+
       return {
-        configured: true,
-        totalViews: totals[0]?.total ?? 0,
+        authorized: true,
+        totalViews: Number(totals[0]?.total ?? 0),
         viewsByDay: byDay.map((r) => ({ day: String(r.day), views: Number(r.views) })),
         topPages: topPages.map((r) => ({ path: String(r.path), views: Number(r.views) })),
         submissions: submissions.map((r) => ({
@@ -172,7 +213,6 @@ export const getAdminStats = createServerFn({ method: "GET" }).handler(
       };
     } catch (err) {
       console.error("admin stats failed:", err);
-      return empty;
+      return { ...unauthorized, authorized: true };
     }
-  },
-);
+  });

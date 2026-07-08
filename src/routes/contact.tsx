@@ -7,7 +7,7 @@ export const Route = createFileRoute("/contact")({
   component: Contact,
 });
 
-type FormStatus = "idle" | "sending" | "sent" | "error" | "not_configured";
+type FormStatus = "idle" | "sending" | "sent" | "error";
 
 function Contact() {
   const [form, setForm] = useState({ name: "", email: "", phone: "", service: "", message: "" });
@@ -26,7 +26,7 @@ function Contact() {
         setStatus("sent");
         setForm({ name: "", email: "", phone: "", service: "", message: "" });
       } else {
-        setStatus(result.error === "not_configured" ? "not_configured" : "error");
+        setStatus("error");
       }
     } catch {
       setStatus("error");
@@ -168,14 +168,6 @@ function Contact() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                       </svg>
                       <span>Something went wrong sending your message. Please try again, or email us directly at info@rokiconstruction.rw.</span>
-                    </div>
-                  )}
-                  {status === "not_configured" && (
-                    <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-300">
-                      <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-                      </svg>
-                      <span>Online submissions aren't available just yet — please email us directly at info@rokiconstruction.rw and we'll respond within 24 hours.</span>
                     </div>
                   )}
                 </form>

@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getAdminStats } from "~/server/functions";
+import { useEffect, useState } from "react";
+import { getAdminStats, type AdminStats } from "~/server/functions";
 
 export const Route = createFileRoute("/admin")({
-  loader: () => getAdminStats(),
   head: () => ({
     meta: [
       { title: "Site Dashboard — ROKI Construction" },
@@ -21,31 +21,121 @@ const serviceLabels: Record<string, string> = {
   other: "Other / Multiple",
 };
 
+const STORAGE_KEY = "roki-admin-key";
+
 function Admin() {
-  const stats = Route.useLoaderData();
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [password, setPassword] = useState("");
+  const [checking, setChecking] = useState(true);
+  const [error, setError] = useState(false);
+
+  const authenticate = async (candidate: string, opts: { silent: boolean }) => {
+    setChecking(true);
+    setError(false);
+    try {
+      const result = await getAdminStats({ data: { password: candidate } });
+      if (result.authorized) {
+        sessionStorage.setItem(STORAGE_KEY, candidate);
+        setStats(result);
+      } else {
+        sessionStorage.removeItem(STORAGE_KEY);
+        if (!opts.silent) setError(true);
+      }
+    } catch {
+      if (!opts.silent) setError(true);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  // Re-use a password remembered earlier in this browser session.
+  useEffect(() => {
+    const saved = sessionStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      void authenticate(saved, { silent: true });
+    } else {
+      setChecking(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password || checking) return;
+    void authenticate(password, { silent: false });
+  };
+
+  if (!stats?.authorized) {
+    return (
+      <div className="pt-24 pb-20 min-h-dvh flex items-center justify-center bg-gray-50 dark:bg-dark-bg">
+        <div className="w-full max-w-sm mx-auto px-4">
+          <form
+            onSubmit={handleLogin}
+            className="p-8 rounded-2xl bg-white dark:bg-dark-card border border-gray-200 dark:border-gray-800 shadow-sm"
+          >
+            <div className="w-12 h-12 mx-auto flex items-center justify-center rounded-xl bg-primary/10 text-primary dark:text-primary-light">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+            </div>
+            <h1 className="mt-4 text-xl font-bold text-center text-gray-900 dark:text-white font-display">
+              Site Dashboard
+            </h1>
+            <p className="mt-1 text-sm text-center text-gray-500 dark:text-gray-400">
+              Enter the admin password to continue.
+            </p>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              autoFocus
+              className="mt-6 w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-dark-bg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200"
+            />
+            {error && (
+              <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+                Incorrect password. Please try again.
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={checking || !password}
+              className="mt-5 w-full px-6 py-3 text-sm font-semibold text-white bg-primary hover:bg-primary-dark rounded-xl transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {checking ? "Checking…" : "Unlock Dashboard"}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   const maxDay = Math.max(1, ...stats.viewsByDay.map((d) => d.views));
   const maxPage = Math.max(1, ...stats.topPages.map((p) => p.views));
 
   return (
     <div className="pt-24 pb-20 min-h-dvh bg-gray-50 dark:bg-dark-bg">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white font-display">
-          Site Dashboard
-        </h1>
-        <p className="mt-2 text-gray-500 dark:text-gray-400">
-          Visitor activity and contact form submissions.
-        </p>
-
-        {!stats.configured && (
-          <div className="mt-8 p-6 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300">
-            <h2 className="font-semibold">Database not connected yet</h2>
-            <p className="mt-1 text-sm leading-relaxed">
-              Analytics and contact submissions need a database. Connect one (Neon Postgres via the
-              database card, which provides <code className="font-mono text-xs">DATABASE_URL</code>) and
-              this dashboard will start filling in automatically — no code changes required.
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white font-display">
+              Site Dashboard
+            </h1>
+            <p className="mt-2 text-gray-500 dark:text-gray-400">
+              Visitor activity and contact form submissions.
             </p>
           </div>
-        )}
+          <button
+            onClick={() => {
+              sessionStorage.removeItem(STORAGE_KEY);
+              setStats(null);
+              setPassword("");
+            }}
+            className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-dark-card border border-gray-300 dark:border-gray-700 rounded-lg hover:border-primary transition-colors"
+          >
+            Lock
+          </button>
+        </div>
 
         {/* Overview tiles */}
         <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -156,8 +246,8 @@ function Admin() {
         </div>
 
         <p className="mt-8 text-xs text-gray-400 dark:text-gray-500">
-          This dashboard is unlisted (and marked noindex) but not password-protected — ask us to add
-          authentication before sharing the URL beyond the team.
+          Data is stored in the site's local SQLite database (.data/site.db). The dashboard unlocks
+          for this browser session only.
         </p>
       </div>
     </div>
