@@ -2,14 +2,22 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { ScrollReveal } from "~/components/ScrollReveal";
 import { submitContact } from "~/server/functions";
+import { useContent } from "~/hooks/useContent";
 
 export const Route = createFileRoute("/contact")({
+  head: () => ({
+    meta: [
+      { title: "Contact Us — ROKI Construction Rwanda" },
+      { name: "description", content: "Talk to ROKI Construction about your project. Office in Kacyiru, Kigali — we respond within 24 hours." },
+    ],
+  }),
   component: Contact,
 });
 
 type FormStatus = "idle" | "sending" | "sent" | "error";
 
 function Contact() {
+  const { settings } = useContent();
   const [form, setForm] = useState({ name: "", email: "", phone: "", service: "", message: "" });
   const [status, setStatus] = useState<FormStatus>("idle");
 
@@ -167,7 +175,7 @@ function Contact() {
                       <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                       </svg>
-                      <span>Something went wrong sending your message. Please try again, or email us directly at info@rokiconstruction.rw.</span>
+                      <span>Something went wrong sending your message. Please try again, or email us directly.</span>
                     </div>
                   )}
                 </form>
@@ -196,9 +204,9 @@ function Contact() {
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider">Office Address</h3>
                       <p className="mt-1 text-gray-600 dark:text-gray-400">
-                        KG 123 Street<br />
-                        Kacyiru, Kigali<br />
-                        Rwanda
+                        {settings.addressLines.map((line) => (
+                          <span key={line}>{line}<br /></span>
+                        ))}
                       </p>
                     </div>
                   </div>
@@ -213,8 +221,8 @@ function Contact() {
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider">Phone</h3>
                       <p className="mt-1 text-gray-600 dark:text-gray-400">
-                        +250 788 000 000<br />
-                        +250 733 000 000
+                        {settings.phone}<br />
+                        {settings.phone2}
                       </p>
                     </div>
                   </div>
@@ -229,8 +237,8 @@ function Contact() {
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider">Email</h3>
                       <p className="mt-1 text-gray-600 dark:text-gray-400">
-                        info@rokiconstruction.rw<br />
-                        projects@rokiconstruction.rw
+                        {settings.email}<br />
+                        {settings.email2}
                       </p>
                     </div>
                   </div>
@@ -245,9 +253,9 @@ function Contact() {
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider">Business Hours</h3>
                       <p className="mt-1 text-gray-600 dark:text-gray-400">
-                        Monday - Friday: 8:00 AM - 6:00 PM<br />
-                        Saturday: 9:00 AM - 1:00 PM<br />
-                        Sunday: Closed
+                        {settings.hoursLines.map((line) => (
+                          <span key={line}>{line}<br /></span>
+                        ))}
                       </p>
                     </div>
                   </div>

@@ -11,7 +11,8 @@ import appCss from "~/styles/app.css?url";
 import { ThemeProvider } from "~/components/ThemeProvider";
 import { Header } from "~/components/Header";
 import { Footer } from "~/components/Footer";
-import { trackPageView } from "~/server/functions";
+import { getSiteContent, trackPageView } from "~/server/functions";
+import { defaultContent } from "~/data/content";
 
 /** Record a page view (fire-and-forget) on every client-side navigation. */
 function usePageTracking() {
@@ -31,26 +32,64 @@ function usePageTracking() {
 }
 
 export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "ROKI Construction Rwanda — Building Rwanda's Future" },
-      { name: "description", content: "ROKI Construction Rwanda delivers high-quality architectural design, geotechnical engineering, sustainability consulting, and project management services across Rwanda." },
-      { property: "og:title", content: "ROKI Construction Rwanda — Building Rwanda's Future" },
-      { property: "og:description", content: "Architectural design, geotechnical engineering, sustainability consulting, and project management across Rwanda." },
-      { property: "og:image", content: "/images/hero-bg.jpg" },
-      { property: "og:type", content: "website" },
-    ],
-    links: [
-      { rel: "stylesheet", href: appCss },
-      { rel: "icon", type: "image/png", href: "/images/roki-logo.png" },
-      { rel: "apple-touch-icon", href: "/images/roki-logo.png" },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { href: "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@400;500;600;700;800&display=swap", rel: "stylesheet" },
-    ],
-  }),
+  loader: () => getSiteContent(),
+  head: ({ loaderData }) => {
+    const s = loaderData?.settings ?? defaultContent.settings;
+    return {
+      meta: [
+        { charSet: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1" },
+        { title: s.seoTitle },
+        { name: "description", content: s.seoDescription },
+        { name: "theme-color", content: "#284932" },
+        { property: "og:site_name", content: s.businessName },
+        { property: "og:title", content: s.seoTitle },
+        { property: "og:description", content: s.seoDescription },
+        { property: "og:image", content: `${s.siteUrl}/images/hero-bg.jpg` },
+        { property: "og:type", content: "website" },
+        { property: "og:locale", content: "en_RW" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: s.seoTitle },
+        { name: "twitter:description", content: s.seoDescription },
+        { name: "twitter:image", content: `${s.siteUrl}/images/hero-bg.jpg` },
+        { name: "geo.region", content: "RW" },
+        { name: "geo.placename", content: "Kigali" },
+      ],
+      links: [
+        { rel: "stylesheet", href: appCss },
+        { rel: "icon", type: "image/png", href: "/images/roki-logo.png" },
+        { rel: "apple-touch-icon", href: "/images/roki-logo.png" },
+        { rel: "preconnect", href: "https://fonts.googleapis.com" },
+        { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+        { href: "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@400;500;600;700;800&display=swap", rel: "stylesheet" },
+      ],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "GeneralContractor",
+            name: s.businessName,
+            description: s.seoDescription,
+            url: s.siteUrl || undefined,
+            logo: `${s.siteUrl}/images/roki-logo.png`,
+            image: `${s.siteUrl}/images/hero-bg.jpg`,
+            email: s.email,
+            telephone: s.phone,
+            address: {
+              "@type": "PostalAddress",
+              streetAddress: s.addressLines[0] ?? "",
+              addressLocality: "Kigali",
+              addressCountry: "RW",
+            },
+            geo: { "@type": "GeoCoordinates", latitude: -1.9441, longitude: 30.0619 },
+            areaServed: "Rwanda",
+            foundingDate: "2021",
+          }),
+        },
+      ],
+    };
+  },
   notFoundComponent: () => (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center bg-white dark:bg-dark-bg">
       <span className="text-6xl font-bold text-primary">404</span>

@@ -1,60 +1,21 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ScrollReveal } from "~/components/ScrollReveal";
+import { useContent } from "~/hooks/useContent";
 
 export const Route = createFileRoute("/careers")({
   head: () => ({
-    meta: [{ title: "Careers — ROKI Construction Rwanda" }],
+    meta: [
+      { title: "Careers — ROKI Construction Rwanda" },
+      { name: "description", content: "Open positions at ROKI Construction Rwanda: engineering, design, commercial, and site roles in Kigali and across Rwanda." },
+    ],
   }),
   component: Careers,
 });
 
-const openings = [
-  {
-    title: "Site Engineer",
-    type: "Full-time",
-    location: "Kigali",
-    department: "Engineering",
-    description:
-      "Supervise day-to-day construction activities, coordinate subcontractors, and ensure works are executed to drawings, specification, and safety standards.",
-    requirements: ["BSc in Civil Engineering", "3+ years site experience", "Fluent in Kinyarwanda and English", "Valid driving licence"],
-  },
-  {
-    title: "Quantity Surveyor",
-    type: "Full-time",
-    location: "Kigali",
-    department: "Commercial",
-    description:
-      "Prepare bills of quantities, evaluate variations, manage subcontractor accounts, and keep project cost reporting accurate and current.",
-    requirements: ["Degree in Quantity Surveying or related field", "2+ years post-qualification experience", "Strong Excel / cost-software skills"],
-  },
-  {
-    title: "Architectural Designer",
-    type: "Full-time",
-    location: "Kigali",
-    department: "Design",
-    description:
-      "Develop concept and detailed designs for residential and commercial projects, produce presentation visuals, and support planning submissions.",
-    requirements: ["Degree in Architecture", "Proficiency in Revit / ArchiCAD and rendering tools", "Portfolio demonstrating built or academic work"],
-  },
-  {
-    title: "Health & Safety Officer",
-    type: "Full-time",
-    location: "Kigali / site-based",
-    department: "Operations",
-    description:
-      "Own site safety across active projects: inductions, toolbox talks, inspections, incident reporting, and continuous improvement of our safety culture.",
-    requirements: ["NEBOSH/IOSH certification or equivalent", "2+ years construction H&S experience", "Willingness to travel to sites across Rwanda"],
-  },
-];
-
-const benefits = [
-  { title: "Growth & Training", description: "Certification sponsorship, mentorship from senior engineers, and a real path to leadership." },
-  { title: "Meaningful Work", description: "Build schools, homes, bridges, and workplaces that shape Rwanda's future." },
-  { title: "Fair Compensation", description: "Competitive salaries, performance bonuses, and full statutory benefits." },
-  { title: "Safety First", description: "World-class safety standards on every site — everyone goes home, every day." },
-];
 
 function Careers() {
+  const { careers } = useContent();
+  const { openings, benefits, applyEmail } = careers;
   return (
     <>
       {/* Hero */}
@@ -71,7 +32,7 @@ function Careers() {
           </ScrollReveal>
           <ScrollReveal delay={200}>
             <p className="mt-6 text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
-              Join a team that's building Rwanda's future — and invest in yours while you do it.
+              {careers.intro}
             </p>
           </ScrollReveal>
         </div>
@@ -133,7 +94,7 @@ function Careers() {
                       </div>
                     </div>
                     <a
-                      href={`mailto:careers@rokiconstruction.rw?subject=${encodeURIComponent(`Application: ${job.title}`)}`}
+                      href={`mailto:${applyEmail}?subject=${encodeURIComponent(`Application: ${job.title}`)}`}
                       className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-primary hover:bg-primary-dark rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-primary/25 active:scale-95"
                     >
                       Apply Now
@@ -162,8 +123,8 @@ function Careers() {
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 max-w-lg mx-auto">
                 We're always interested in meeting talented engineers, architects, and builders.
                 Send your CV to{" "}
-                <a href="mailto:careers@rokiconstruction.rw" className="text-primary dark:text-primary-light font-semibold hover:underline">
-                  careers@rokiconstruction.rw
+                <a href={`mailto:${applyEmail}`} className="text-primary dark:text-primary-light font-semibold hover:underline">
+                  {applyEmail}
                 </a>{" "}
                 and tell us what you'd bring to the team.
               </p>

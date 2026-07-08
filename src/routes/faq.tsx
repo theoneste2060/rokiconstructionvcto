@@ -1,80 +1,50 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { ScrollReveal } from "~/components/ScrollReveal";
+import { getSiteContent } from "~/server/functions";
+import type { FaqItem as FaqEntry } from "~/data/content";
 
 export const Route = createFileRoute("/faq")({
-  head: () => ({
-    meta: [{ title: "FAQ — ROKI Construction Rwanda" }],
+  loader: async () => {
+    const { faqs } = await getSiteContent();
+    return { faqs };
+  },
+  head: ({ loaderData }) => ({
+    meta: [
+      { title: "FAQ — ROKI Construction Rwanda" },
+      { name: "description", content: "Answers to the questions clients across Rwanda ask us most: quotes, costs, payments, schedules, safety, and warranties." },
+    ],
+    scripts: loaderData
+      ? [
+          {
+            type: "application/ld+json",
+            children: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "FAQPage",
+              mainEntity: loaderData.faqs.map((f) => ({
+                "@type": "Question",
+                name: f.q,
+                acceptedAnswer: { "@type": "Answer", text: f.a },
+              })),
+            }),
+          },
+        ]
+      : [],
   }),
   component: Faq,
 });
 
-const faqs = [
-  {
-    category: "Getting Started",
-    items: [
-      {
-        q: "How do I request a quote for my project?",
-        a: "Use the contact form on our website, call us, or email info@rokiconstruction.rw with a short description of your project. We'll arrange a free consultation — usually within 48 hours — to understand your needs before preparing a detailed, itemised quotation.",
-      },
-      {
-        q: "Do you handle small projects, or only large developments?",
-        a: "Both. We build everything from single-family homes and renovations to commercial towers and infrastructure. Every project gets the same professional process: proper drawings, itemised costing, and dedicated site supervision.",
-      },
-      {
-        q: "Which areas of Rwanda do you work in?",
-        a: "We're headquartered in Kigali and work across all of Rwanda — recent projects span Kigali, Musanze, Rubavu, Huye, and Nyungwe. For projects outside Kigali we establish a full site presence with local hiring wherever possible.",
-      },
-    ],
-  },
-  {
-    category: "Costs & Contracts",
-    items: [
-      {
-        q: "How much does it cost to build in Rwanda?",
-        a: "It depends on design complexity, site conditions, and finishes — which is why we always start with a free consultation and provide an itemised bill of quantities rather than a vague lump sum. That way you see exactly where every franc goes and can adjust scope to fit your budget.",
-      },
-      {
-        q: "How are payments structured?",
-        a: "Payments are tied to verified construction milestones — foundations complete, ring beam cast, roof on, and so forth — never to calendar dates. Your money always follows completed, inspected work.",
-      },
-      {
-        q: "What happens if I want to change something mid-project?",
-        a: "Changes happen on almost every project, so we agree a written variations procedure before construction starts. Any change is priced and approved by you in writing before the work proceeds — no surprise costs at handover.",
-      },
-    ],
-  },
-  {
-    category: "During Construction",
-    items: [
-      {
-        q: "How do you keep projects on schedule?",
-        a: "Every project has a milestone programme, a dedicated project manager, and weekly progress reports with photos. We sequence trades carefully, pre-order long-lead materials, and flag risks early — that discipline is why our on-time delivery record stands at 100%.",
-      },
-      {
-        q: "Who supervises the site day-to-day?",
-        a: "A qualified ROKI site engineer is present on every active site, supported by our head office engineering team. You'll know your supervisor by name and have their direct contact from day one.",
-      },
-      {
-        q: "What safety standards do you follow?",
-        a: "All sites operate under our health & safety management system: inductions for every worker, daily toolbox talks, mandatory protective equipment, and regular independent inspections. Our goal on every project is simple — zero incidents.",
-      },
-    ],
-  },
-  {
-    category: "After Handover",
-    items: [
-      {
-        q: "Is there a warranty on your work?",
-        a: "Yes. Every contract includes a defects liability period after handover during which we repair any defect in workmanship at no cost. Structural elements carry longer guarantees, detailed in your contract.",
-      },
-      {
-        q: "Do you offer maintenance services after completion?",
-        a: "We do. Many clients keep us on for planned maintenance — from annual inspections to full facilities support — so their building keeps performing the way it did on handover day.",
-      },
-    ],
-  },
-];
+/** Group the flat FAQ list into ordered categories. */
+function groupFaqs(faqs: FaqEntry[]) {
+  const groups: { category: string; items: FaqEntry[] }[] = [];
+  for (const f of faqs) {
+    const g = groups.find((x) => x.category === f.category);
+    if (g) g.items.push(f);
+    else groups.push({ category: f.category, items: [f] });
+  }
+  return groups;
+}
+
 
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
@@ -106,6 +76,8 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 function Faq() {
+  const { faqs: flatFaqs } = Route.useLoaderData();
+  const faqs = groupFaqs(flatFaqs);
   return (
     <>
       {/* Hero */}

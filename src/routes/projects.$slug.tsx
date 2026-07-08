@@ -1,26 +1,30 @@
 import { Link, createFileRoute, notFound } from "@tanstack/react-router";
 import { ScrollReveal } from "~/components/ScrollReveal";
-import { getProject, projects } from "~/data/projects";
+import { getSiteContent } from "~/server/functions";
 
 export const Route = createFileRoute("/projects/$slug")({
-  loader: ({ params }) => {
-    const project = getProject(params.slug);
+  loader: async ({ params }) => {
+    const { projects } = await getSiteContent();
+    const project = projects.find((p) => p.slug === params.slug);
     if (!project) throw notFound();
-    return { project };
+    const related = projects
+      .filter((p) => p.category === project.category && p.slug !== project.slug)
+      .slice(0, 3);
+    return { project, related };
   },
   head: ({ loaderData }) => ({
     meta: loaderData
-      ? [{ title: `${loaderData.project.title} — ROKI Construction Rwanda` }]
+      ? [
+          { title: `${loaderData.project.title} — ROKI Construction Rwanda` },
+          { name: "description", content: loaderData.project.summary },
+        ]
       : [],
   }),
   component: ProjectDetail,
 });
 
 function ProjectDetail() {
-  const { project } = Route.useLoaderData();
-  const related = projects
-    .filter((p) => p.category === project.category && p.slug !== project.slug)
-    .slice(0, 3);
+  const { project, related } = Route.useLoaderData();
 
   return (
     <>

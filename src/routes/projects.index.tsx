@@ -1,15 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ScrollReveal } from "~/components/ScrollReveal";
-import { projects as allProjects, projectCategories } from "~/data/projects";
+import { useContent } from "~/hooks/useContent";
 
 export const Route = createFileRoute("/projects/")({
+  head: () => ({
+    meta: [
+      { title: "Projects — ROKI Construction Rwanda" },
+      { name: "description", content: "Commercial, residential, hospitality, institutional, and infrastructure projects delivered by ROKI Construction across Rwanda." },
+    ],
+  }),
   component: Projects,
 });
 
-const categories = projectCategories;
 
 function Projects() {
+  const { projects: allProjects } = useContent();
+  const categories = ["All", ...Array.from(new Set(allProjects.map((p) => p.category)))];
   const [activeFilter, setActiveFilter] = useState("All");
 
   const filtered = activeFilter === "All"

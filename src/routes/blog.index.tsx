@@ -1,15 +1,20 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ScrollReveal } from "~/components/ScrollReveal";
-import { formatPostDate, posts } from "~/data/posts";
+import { formatPostDate } from "~/data/posts";
+import { useContent } from "~/hooks/useContent";
 
 export const Route = createFileRoute("/blog/")({
   head: () => ({
-    meta: [{ title: "Insights — ROKI Construction Rwanda" }],
+    meta: [
+      { title: "Insights — ROKI Construction Rwanda" },
+      { name: "description", content: "Practical guidance on construction, engineering, and sustainable building in Rwanda from the ROKI Construction team." },
+    ],
   }),
   component: Blog,
 });
 
 function Blog() {
+  const { posts } = useContent();
   const [lead, ...rest] = posts;
 
   return (

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
+import { contentKeys, defaultContent, type SiteContent } from "~/data/content";
 
 // ---------------------------------------------------------------------------
 // SQLite storage
@@ -66,10 +67,95 @@ async function openDb(): Promise<Db> {
       user_agent text not null default '',
       created_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     )`);
+  db.run(`
+    create table if not exists site_content (
+      key text primary key,
+      value text not null,
+      updated_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    )`);
 
   dbInstance = db;
   return db;
 }
+
+// ---------------------------------------------------------------------------
+// Site content (editable from /admin)
+// ---------------------------------------------------------------------------
+
+/**
+ * Full site content: the defaults from ~/data/content overlaid with any
+ * documents saved from the admin Content editor. Saved values replace the
+ * default for their key wholesale (the editor always writes complete
+ * documents), and unparseable rows fall back to the default.
+ */
+export const getSiteContent = createServerFn({ method: "GET" }).handler(
+  async (): Promise<SiteContent> => {
+    const merged: SiteContent = { ...defaultContent };
+    try {
+      const db = await openDb();
+      const rows = db.all(`select key, value from site_content`);
+      for (const row of rows) {
+        const key = String(row.key) as keyof SiteContent;
+        if (!contentKeys.includes(key)) continue;
+        try {
+          (merged as Record<string, unknown>)[key] = JSON.parse(String(row.value));
+        } catch {
+          // keep the default for this key
+        }
+      }
+    } catch (err) {
+      console.error("getSiteContent failed, serving defaults:", err);
+    }
+    return merged;
+  },
+);
+
+export const saveSiteContent = createServerFn({ method: "POST" })
+  .inputValidator((data: { password: string; key: string; value: unknown }) => {
+    const key = String(data.key ?? "");
+    if (!contentKeys.includes(key as keyof SiteContent)) {
+      throw new Error(`Unknown content key: ${key}`);
+    }
+    return { password: String(data.password ?? ""), key, value: data.value };
+  })
+  .handler(async ({ data }): Promise<{ ok: boolean; error?: string }> => {
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    if (!adminPassword || data.password !== adminPassword) {
+      return { ok: false, error: "unauthorized" };
+    }
+    try {
+      const db = await openDb();
+      db.run(
+        `insert into site_content (key, value, updated_at)
+         values (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+         on conflict(key) do update set value = excluded.value, updated_at = excluded.updated_at`,
+        [data.key, JSON.stringify(data.value)],
+      );
+      return { ok: true };
+    } catch (err) {
+      console.error("saveSiteContent failed:", err);
+      return { ok: false, error: "server_error" };
+    }
+  });
+
+/** Reset one content key back to the built-in default. */
+export const resetSiteContent = createServerFn({ method: "POST" })
+  .inputValidator((data: { password: string; key: string }) => ({
+    password: String(data.password ?? ""),
+    key: String(data.key ?? ""),
+  }))
+  .handler(async ({ data }): Promise<{ ok: boolean }> => {
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    if (!adminPassword || data.password !== adminPassword) return { ok: false };
+    try {
+      const db = await openDb();
+      db.run(`delete from site_content where key = ?`, [data.key]);
+      return { ok: true };
+    } catch (err) {
+      console.error("resetSiteContent failed:", err);
+      return { ok: false };
+    }
+  });
 
 // ---------------------------------------------------------------------------
 // Contact form

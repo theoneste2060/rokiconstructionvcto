@@ -1,22 +1,50 @@
 import { Link, createFileRoute, notFound } from "@tanstack/react-router";
 import { ScrollReveal } from "~/components/ScrollReveal";
-import { formatPostDate, getPost, posts } from "~/data/posts";
+import { formatPostDate } from "~/data/posts";
+import { getSiteContent } from "~/server/functions";
 
 export const Route = createFileRoute("/blog/$slug")({
-  loader: ({ params }) => {
-    const post = getPost(params.slug);
+  loader: async ({ params }) => {
+    const { posts } = await getSiteContent();
+    const post = posts.find((p) => p.slug === params.slug);
     if (!post) throw notFound();
-    return { post };
+    const more = posts.filter((p) => p.slug !== post.slug).slice(0, 2);
+    return { post, more };
   },
   head: ({ loaderData }) => ({
-    meta: loaderData ? [{ title: `${loaderData.post.title} — ROKI Construction Rwanda` }] : [],
+    meta: loaderData
+      ? [
+          { title: `${loaderData.post.title} — ROKI Construction Rwanda` },
+          { name: "description", content: loaderData.post.excerpt },
+        ]
+      : [],
+    scripts: loaderData
+      ? [
+          {
+            type: "application/ld+json",
+            children: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Article",
+              headline: loaderData.post.title,
+              description: loaderData.post.excerpt,
+              image: loaderData.post.image,
+              datePublished: loaderData.post.date,
+              author: {
+                "@type": "Person",
+                name: loaderData.post.author.name,
+                jobTitle: loaderData.post.author.role,
+              },
+              publisher: { "@type": "Organization", name: "ROKI Construction Rwanda" },
+            }),
+          },
+        ]
+      : [],
   }),
   component: BlogPost,
 });
 
 function BlogPost() {
-  const { post } = Route.useLoaderData();
-  const more = posts.filter((p) => p.slug !== post.slug).slice(0, 2);
+  const { post, more } = Route.useLoaderData();
 
   return (
     <>
