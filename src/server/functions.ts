@@ -2,12 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 
-/**
- * Admin dashboard password. Override with the ADMIN_PASSWORD env var in
- * production if you want to rotate it without a code change.
- */
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "@Prefet3574";
-
 // ---------------------------------------------------------------------------
 // SQLite storage
 //
@@ -147,6 +141,8 @@ export const trackPageView = createServerFn({ method: "POST" })
 
 export type AdminStats = {
   authorized: boolean;
+  /** False when the ADMIN_PASSWORD env var isn't set, so the UI can say so. */
+  passwordSet: boolean;
   totalViews: number;
   viewsByDay: { day: string; views: number }[];
   topPages: { path: string; views: number }[];
@@ -163,6 +159,7 @@ export type AdminStats = {
 
 const unauthorized: AdminStats = {
   authorized: false,
+  passwordSet: true,
   totalViews: 0,
   viewsByDay: [],
   topPages: [],
@@ -175,8 +172,12 @@ export const getAdminStats = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data }): Promise<AdminStats> => {
     // The password check lives server-side so the data itself is protected,
-    // not just the page that renders it.
-    if (data.password !== ADMIN_PASSWORD) return unauthorized;
+    // not just the page that renders it. The password comes exclusively from
+    // the ADMIN_PASSWORD environment variable — never hardcode it. Read at
+    // request time (not module load) so serverless runtimes pick it up too.
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    if (!adminPassword) return { ...unauthorized, passwordSet: false };
+    if (data.password !== adminPassword) return unauthorized;
 
     try {
       const db = await openDb();
@@ -198,6 +199,7 @@ export const getAdminStats = createServerFn({ method: "POST" })
 
       return {
         authorized: true,
+        passwordSet: true,
         totalViews: Number(totals[0]?.total ?? 0),
         viewsByDay: byDay.map((r) => ({ day: String(r.day), views: Number(r.views) })),
         topPages: topPages.map((r) => ({ path: String(r.path), views: Number(r.views) })),

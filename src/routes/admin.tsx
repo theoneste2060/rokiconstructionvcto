@@ -28,18 +28,20 @@ function Admin() {
   const [password, setPassword] = useState("");
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState(false);
+  const [passwordSet, setPasswordSet] = useState(true);
 
   const authenticate = async (candidate: string, opts: { silent: boolean }) => {
     setChecking(true);
     setError(false);
     try {
       const result = await getAdminStats({ data: { password: candidate } });
+      setPasswordSet(result.passwordSet);
       if (result.authorized) {
         sessionStorage.setItem(STORAGE_KEY, candidate);
         setStats(result);
       } else {
         sessionStorage.removeItem(STORAGE_KEY);
-        if (!opts.silent) setError(true);
+        if (!opts.silent) setError(result.passwordSet);
       }
     } catch {
       if (!opts.silent) setError(true);
@@ -95,6 +97,13 @@ function Admin() {
             {error && (
               <p className="mt-3 text-sm text-red-600 dark:text-red-400">
                 Incorrect password. Please try again.
+              </p>
+            )}
+            {!passwordSet && (
+              <p className="mt-3 text-sm text-amber-700 dark:text-amber-400">
+                No admin password is configured. Set the{" "}
+                <code className="font-mono text-xs">ADMIN_PASSWORD</code> environment
+                variable on the server to enable this dashboard.
               </p>
             )}
             <button
