@@ -11,7 +11,7 @@ import { RichTextEditor, paragraphsToHtml } from "./RichTextEditor";
  * whole JSON documents per collection key.
  */
 
-type FieldType = "text" | "textarea" | "lines" | "paragraphs" | "pairs" | "image" | "icon" | "richtext";
+type FieldType = "text" | "textarea" | "lines" | "paragraphs" | "pairs" | "image" | "icon" | "richtext" | "range";
 
 type Field = {
   key: string; // dot-path into the item/object
@@ -22,6 +22,10 @@ type Field = {
   pairKeys?: [string, string];
   /** for type "richtext": legacy paragraph-array key used to seed the editor */
   fallbackKey?: string;
+  /** for type "range" */
+  min?: number;
+  max?: number;
+  suffix?: string;
 };
 
 type Collection = {
@@ -53,6 +57,20 @@ const knownImages = [
   "/images/rwandan_warehouse.webp",
   "/images/sustainable_rooftop_kigali.webp",
 ];
+
+const collectionHints: Record<string, string> = {
+  "Site Settings": "Business identity, SEO metadata, contact details, and social links used across the whole site.",
+  "Homepage Hero": "The big opening section of the homepage — headline, buttons, stats, background photo and its brightness.",
+  Services: "The services shown on the homepage cards and the Services page. Each one has an icon, photo, and rich description.",
+  "About Page": "The story, values, and hero copy of the About page.",
+  Team: "Leadership profiles shown on the About page.",
+  Testimonials: "Client quotes on the homepage.",
+  Projects: "Your portfolio. Featured projects also appear on the homepage.",
+  "Blog Posts": "Articles on the Insights page, written with the rich-text editor.",
+  "Careers Page": "Intro, benefits, and the applications email.",
+  "Job Openings": "Positions listed on the Careers page.",
+  FAQ: "Questions grouped by category on the FAQ page.",
+};
 
 const collections: Collection[] = [
   {
@@ -90,6 +108,9 @@ const collections: Collection[] = [
       { key: "stats", label: "Stats (Value | Label per line)", type: "pairs", pairKeys: ["value", "label"] },
       { key: "ctaPrimary", label: "Primary Button", type: "text" },
       { key: "ctaSecondary", label: "Secondary Button", type: "text" },
+      { key: "image", label: "Hero Background Image", type: "image" },
+      { key: "brightness", label: "Image Brightness", type: "range", min: 40, max: 160, suffix: "%", hint: "100% = original photo. Lower for darker, higher for brighter." },
+      { key: "overlay", label: "Overlay Strength", type: "range", min: 0, max: 100, suffix: "%", hint: "The readability tint over the photo. 100% = strongest, 0% = pure photo." },
     ],
   },
   {
@@ -318,7 +339,7 @@ function fromText(field: Field, text: string): unknown {
 // ---------------------------------------------------------------------------
 
 const inputCls =
-  "w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-dark-bg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary";
+  "w-full px-3.5 py-2.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/5 text-gray-900 dark:text-white placeholder-gray-400 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary focus:bg-white dark:focus:bg-dark-bg hover:border-gray-300 dark:hover:border-gray-600";
 
 function FieldInput({
   field,
@@ -340,6 +361,32 @@ function FieldInput({
       <div className="block">
         <span className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">{field.label}</span>
         <RichTextEditor value={typeof value === "string" ? value : ""} onChange={onChange} auth={auth} />
+        {field.hint && <span className="block mt-1 text-[11px] text-gray-400">{field.hint}</span>}
+      </div>
+    );
+  }
+
+  if (field.type === "range") {
+    const min = field.min ?? 0;
+    const max = field.max ?? 100;
+    const num = typeof value === "number" ? value : 100;
+    return (
+      <div className="block">
+        <span className="flex items-center justify-between text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
+          {field.label}
+          <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary dark:text-primary-light font-mono">
+            {num}
+            {field.suffix ?? ""}
+          </span>
+        </span>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          value={num}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="w-full h-2 rounded-full appearance-none cursor-pointer bg-gray-200 dark:bg-gray-700 accent-[#204830]"
+        />
         {field.hint && <span className="block mt-1 text-[11px] text-gray-400">{field.hint}</span>}
       </div>
     );
@@ -457,28 +504,45 @@ export function ContentEditor({ auth }: { auth: AdminAuth }) {
 
   return (
     <div className="space-y-6">
-      {/* Collection tabs */}
-      <div className="flex flex-wrap gap-2">
-        {collections.map((c) => (
-          <button
-            key={c.label}
-            onClick={() => {
-              setActive(c.label);
-              setStatus("idle");
-            }}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              active === c.label
-                ? "bg-primary text-white shadow-md"
-                : "bg-white dark:bg-dark-card text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-800 hover:border-primary/40"
-            }`}
-          >
-            {c.label}
-          </button>
-        ))}
-      </div>
+      {/* Editor card with tab strip */}
+      <div className="rounded-2xl bg-white dark:bg-dark-card border border-gray-200 dark:border-gray-800 overflow-hidden">
+        {/* Tabs */}
+        <div className="flex overflow-x-auto border-b border-gray-200 dark:border-gray-800 bg-gray-50/70 dark:bg-white/5" role="tablist">
+          {collections.map((c) => (
+            <button
+              key={c.label}
+              role="tab"
+              aria-selected={active === c.label}
+              onClick={() => {
+                setActive(c.label);
+                setStatus("idle");
+              }}
+              className={`relative shrink-0 px-5 py-3.5 text-sm font-medium whitespace-nowrap transition-colors ${
+                active === c.label
+                  ? "text-primary dark:text-primary-light bg-white dark:bg-dark-card"
+                  : "text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary-light"
+              }`}
+            >
+              {c.label}
+              <span
+                className={`absolute bottom-0 left-0 right-0 h-0.5 ${
+                  active === c.label ? "bg-primary" : "bg-transparent"
+                }`}
+              />
+            </button>
+          ))}
+        </div>
 
-      {/* Editor body */}
-      <div className="p-6 rounded-2xl bg-white dark:bg-dark-card border border-gray-200 dark:border-gray-800">
+        {/* Card header */}
+        <div className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800/60">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white font-display">{col.label}</h2>
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            {collectionHints[col.label] ?? "Edit the fields below, then save — changes go live immediately."}
+          </p>
+        </div>
+
+        {/* Editor body */}
+        <div className="p-6">
         {col.kind === "object" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {col.fields.map((f) => (
@@ -503,9 +567,12 @@ export function ContentEditor({ auth }: { auth: AdminAuth }) {
         ) : (
           <div className="space-y-4">
             {(value as Record<string, unknown>[]).map((item, idx, arr) => (
-              <details key={idx} className="rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-                <summary className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer select-none bg-gray-50 dark:bg-gray-800/40">
-                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
+              <details key={idx} className="group/item rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden transition-colors hover:border-primary/40 open:border-primary/40 open:shadow-md open:shadow-primary/5">
+                <summary className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer select-none bg-gray-50 dark:bg-gray-800/40 [&::-webkit-details-marker]:hidden">
+                  <span className="inline-flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                    <svg className="w-4 h-4 text-primary transition-transform duration-200 group-open/item:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                    </svg>
                     {col.itemTitle?.(item) || `Item ${idx + 1}`}
                   </span>
                   <span className="flex items-center gap-1 text-xs">
@@ -582,8 +649,10 @@ export function ContentEditor({ auth }: { auth: AdminAuth }) {
           </div>
         )}
 
+        </div>
+
         {/* Actions */}
-        <div className="mt-6 pt-5 border-t border-gray-200 dark:border-gray-800 flex flex-wrap items-center gap-3">
+        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50/70 dark:bg-white/5 flex flex-wrap items-center gap-3">
           <button
             onClick={save}
             disabled={status === "saving"}

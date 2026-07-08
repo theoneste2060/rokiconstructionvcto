@@ -35,6 +35,12 @@ export type HeroContent = {
   stats: { value: string; label: string }[];
   ctaPrimary: string;
   ctaSecondary: string;
+  /** Background photo behind the hero copy. */
+  image: string;
+  /** Photo brightness in percent (100 = original). */
+  brightness: number;
+  /** Strength of the readability overlay in percent (100 = full). */
+  overlay: number;
 };
 
 export type ServiceContent = {
@@ -132,6 +138,9 @@ export const defaultContent: SiteContent = {
     ],
     ctaPrimary: "Start Your Project",
     ctaSecondary: "View Our Work",
+    image: "/images/hero-bg.jpg",
+    brightness: 100,
+    overlay: 100,
   },
 
   services: [

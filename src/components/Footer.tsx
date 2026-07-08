@@ -77,8 +77,11 @@ export function Footer() {
                 <li key={s.name}>
                   <Link
                     to={s.href}
-                    className="text-sm text-gray-400 hover:text-primary-light transition-colors duration-200"
+                    className="group inline-flex items-center gap-2 text-sm text-gray-400 hover:text-primary-light transition-colors duration-200"
                   >
+                    <svg className="w-3 h-3 text-primary-light/60 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                    </svg>
                     {s.name}
                   </Link>
                 </li>
@@ -96,8 +99,11 @@ export function Footer() {
                 <li key={l.name}>
                   <Link
                     to={l.href}
-                    className="text-sm text-gray-400 hover:text-primary-light transition-colors duration-200"
+                    className="group inline-flex items-center gap-2 text-sm text-gray-400 hover:text-primary-light transition-colors duration-200"
                   >
+                    <svg className="w-3 h-3 text-primary-light/60 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                    </svg>
                     {l.name}
                   </Link>
                 </li>

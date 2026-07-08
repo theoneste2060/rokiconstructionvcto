@@ -17,16 +17,19 @@ function Home() {
     <>
       {/* ===== HERO SECTION ===== */}
       <section className="relative min-h-dvh flex items-center overflow-hidden bg-hero-pattern-light dark:bg-hero-pattern">
-        {/* Hero background photo */}
+        {/* Hero background photo — image, brightness, and overlay are managed from /admin */}
         <div className="absolute inset-0">
           <img
-            src="/images/hero-bg.jpg"
+            src={hero.image || "/images/hero-bg.jpg"}
             alt="ROKI Construction site in Rwanda at sunrise, with a crane over a building under construction"
             className="w-full h-full object-cover"
+            style={{ filter: `brightness(${hero.brightness ?? 100}%)` }}
           />
           {/* Readability overlay — strong on the left where the copy sits */}
-          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/85 to-white/30 dark:from-dark-bg dark:via-dark-bg/85 dark:to-dark-bg/40" />
-          <div className="absolute inset-0 bg-gradient-to-t from-white/60 via-transparent to-transparent dark:from-dark-bg/70" />
+          <div className="absolute inset-0" style={{ opacity: (hero.overlay ?? 100) / 100 }}>
+            <div className="absolute inset-0 bg-gradient-to-r from-white via-white/85 to-white/30 dark:from-dark-bg dark:via-dark-bg/85 dark:to-dark-bg/40" />
+            <div className="absolute inset-0 bg-gradient-to-t from-white/60 via-transparent to-transparent dark:from-dark-bg/70" />
+          </div>
         </div>
 
         {/* Decorative elements */}
