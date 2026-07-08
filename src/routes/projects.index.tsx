@@ -1,26 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ScrollReveal } from "~/components/ScrollReveal";
+import { useContent } from "~/hooks/useContent";
 
-export const Route = createFileRoute("/projects")({
+export const Route = createFileRoute("/projects/")({
+  head: () => ({
+    meta: [
+      { title: "Projects — ROKI Construction Rwanda" },
+      { name: "description", content: "Commercial, residential, hospitality, institutional, and infrastructure projects delivered by ROKI Construction across Rwanda." },
+    ],
+  }),
   component: Projects,
 });
 
-const allProjects = [
-  { title: "Kigali Heights Tower", category: "Commercial", size: "large", gradient: "from-emerald-800/40 to-teal-600/20", year: "2025" },
-  { title: "Green Hills Estate", category: "Residential", size: "large", gradient: "from-green-800/40 to-emerald-600/20", year: "2024" },
-  { title: "Rwanda Innovation Hub", category: "Institutional", size: "medium", gradient: "from-teal-800/40 to-cyan-600/20", year: "2025" },
-  { title: "Lake View Resort", category: "Hospitality", size: "large", gradient: "from-amber-800/40 to-yellow-600/20", year: "2024" },
-  { title: "Kacyiru Business Center", category: "Commercial", size: "medium", gradient: "from-stone-800/40 to-amber-600/20", year: "2023" },
-  { title: "Mountainside Villas", category: "Residential", size: "medium", gradient: "from-emerald-900/40 to-green-600/20", year: "2024" },
-  { title: "Nyarutarama Office Park", category: "Commercial", size: "medium", gradient: "from-stone-700/40 to-amber-700/20", year: "2023" },
-  { title: "Rwanda Eco-Lodge", category: "Hospitality", size: "large", gradient: "from-green-800/40 to-lime-600/20", year: "2025" },
-  { title: "Gacuriro Housing Development", category: "Residential", size: "small", gradient: "from-emerald-800/40 to-teal-600/20", year: "2023" },
-];
-
-const categories = ["All", "Commercial", "Residential", "Hospitality", "Institutional"];
 
 function Projects() {
+  const { projects: allProjects } = useContent();
+  const categories = ["All", ...Array.from(new Set(allProjects.map((p) => p.category)))];
   const [activeFilter, setActiveFilter] = useState("All");
 
   const filtered = activeFilter === "All"
@@ -74,22 +70,24 @@ function Projects() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filtered.map((project, i) => (
               <ScrollReveal key={project.title} delay={i * 80}>
-                <div className={`group cursor-pointer ${project.size === "large" ? "sm:col-span-2 sm:row-span-1" : ""}`}>
-                  <div className={`relative rounded-2xl overflow-hidden bg-gradient-to-br ${project.gradient} border border-gray-200 dark:border-gray-800 ${
+                <Link
+                  to="/projects/$slug"
+                  params={{ slug: project.slug }}
+                  className={`group block cursor-pointer ${project.size === "large" ? "sm:col-span-2 sm:row-span-1" : ""}`}
+                >
+                  <div className={`relative rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 ${
                     project.size === "large" ? "h-80" : "h-64"
                   }`}>
-                    {/* Decorative abstract pattern */}
-                    <div className="absolute inset-0 opacity-25">
-                      <svg className="w-full h-full" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid slice">
-                        <rect x="60" y="80" width="50" height="100" fill="white" opacity="0.3" />
-                        <rect x="130" y="50" width="50" height="130" fill="white" opacity="0.2" />
-                        <rect x="200" y="100" width="50" height="80" fill="white" opacity="0.3" />
-                        <rect x="270" y="60" width="50" height="120" fill="white" opacity="0.2" />
-                        <rect x="340" y="110" width="50" height="70" fill="white" opacity="0.15" />
-                        <line x1="30" y1="280" x2="380" y2="280" stroke="white" strokeWidth="2" opacity="0.3" />
-                        <line x1="30" y1="310" x2="380" y2="310" stroke="white" strokeWidth="1" opacity="0.15" />
-                      </svg>
-                    </div>
+                    {/* Project photo */}
+                    <img
+                      src={project.image}
+                      alt={`${project.title} — ${project.category} project by ROKI Construction`}
+                      loading="lazy"
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+
+                    {/* Bottom scrim so the always-visible title stays readable */}
+                    <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/60 to-transparent" />
 
                     {/* Overlay on hover */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-400 flex flex-col justify-end p-6">
@@ -119,7 +117,7 @@ function Projects() {
                       <h3 className="text-lg font-bold text-white drop-shadow-lg">{project.title}</h3>
                     </div>
                   </div>
-                </div>
+                </Link>
               </ScrollReveal>
             ))}
           </div>

@@ -10,34 +10,30 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
+  // Server render and first client render both assume "dark" (the blocking
+  // script in __root sets the real class before paint); after mount we sync
+  // state to the stored preference. Never return null here — that would blank
+  // the whole app in the server-rendered HTML.
   const [theme, setTheme] = useState<Theme>("dark");
-  const [mounted, setMounted] = useState(false);
+  const [synced, setSynced] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     const stored = localStorage.getItem("roki-theme") as Theme | null;
-    if (stored) {
+    if (stored === "light" || stored === "dark") {
       setTheme(stored);
     } else {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      setTheme(prefersDark ? "dark" : "light");
+      setTheme(window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
     }
+    setSynced(true);
   }, []);
 
   useEffect(() => {
-    if (!mounted) return;
-    const root = document.documentElement;
-    if (theme === "dark") {
-      root.classList.add("dark");
-    } else {
-      root.classList.remove("dark");
-    }
+    if (!synced) return;
+    document.documentElement.classList.toggle("dark", theme === "dark");
     localStorage.setItem("roki-theme", theme);
-  }, [theme, mounted]);
+  }, [theme, synced]);
 
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
-
-  if (!mounted) return null;
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
